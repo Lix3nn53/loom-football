@@ -1,7 +1,18 @@
 import { FORMATIONS } from "@/lib/formations";
-import type { FormationKey, Match, Player, Team } from "@/types/team";
+import { STAT_KEYS } from "@/lib/player-stats";
+import type { FormationKey, Match, Player, PlayerStats, Team } from "@/types/team";
 
 const FORMATION_KEYS = new Set(Object.keys(FORMATIONS));
+
+const isPlayerStats = (x: unknown): x is PlayerStats => {
+    if (!x || typeof x !== "object") return false;
+    const s = x as Record<string, unknown>;
+    for (const k of STAT_KEYS) {
+        const v = s[k];
+        if (typeof v !== "number" || !Number.isFinite(v)) return false;
+    }
+    return true;
+};
 
 const isPlayer = (x: unknown): x is Player => {
     if (!x || typeof x !== "object") return false;
@@ -10,12 +21,12 @@ const isPlayer = (x: unknown): x is Player => {
     if (typeof p.name !== "string") return false;
     if (typeof p.number !== "number") return false;
     if (p.photoUrl !== undefined && typeof p.photoUrl !== "string") return false;
+    if (!isPlayerStats(p.stats)) return false;
     return true;
 };
 
 export type ExportTeam = {
     name: string;
-    color: string;
     formation: FormationKey;
     lineup: Record<string, Player | null>;
     bench: Player[];
@@ -35,7 +46,6 @@ const isExportTeam = (x: unknown): x is ExportTeam => {
     if (!x || typeof x !== "object") return false;
     const t = x as Record<string, unknown>;
     if (typeof t.name !== "string") return false;
-    if (typeof t.color !== "string") return false;
     if (typeof t.formation !== "string" || !FORMATION_KEYS.has(t.formation))
         return false;
     if (!t.lineup || typeof t.lineup !== "object") return false;
@@ -68,7 +78,6 @@ const teamToExport = (team: Team): ExportTeam => {
     const bench = team.roster.filter((p) => !onPitchIds.has(p.id));
     return {
         name: team.name,
-        color: team.color,
         formation: team.formation,
         lineup,
         bench,
@@ -99,7 +108,6 @@ const exportToTeam = (et: ExportTeam): Team => {
     }
     return {
         name: et.name,
-        color: et.color,
         formation: et.formation,
         roster,
         assignments,

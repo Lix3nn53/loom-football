@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 
+import { PlayerTile } from "@/components/lineup/PlayerTile";
 import {
     getActiveDrag,
     isPlayerDragActive,
     setActiveDrag,
 } from "@/lib/drag-state";
+import { computeOverall } from "@/lib/player-stats";
 import type { Formation, Player } from "@/types/team";
 
 type PitchProps = {
@@ -16,7 +18,6 @@ type PitchProps = {
     selectedPlayerId: string | null;
     onSlotClick: (slotId: string) => void;
     onSlotPlayerClick: (slotId: string) => void;
-    onSlotPlayerRemove?: (slotId: string) => void;
     onSlotDrop?: (
         playerId: string,
         targetSlot: string,
@@ -32,7 +33,6 @@ export const Pitch = ({
     selectedPlayerId,
     onSlotClick,
     onSlotPlayerClick,
-    onSlotPlayerRemove,
     onSlotDrop,
     teamColor,
 }: PitchProps) => {
@@ -41,7 +41,7 @@ export const Pitch = ({
     return (
         <div className="pitch-wrapper">
             <div
-                className="pitch relative w-full h-full overflow-hidden rounded-lg shadow-lg ring-1 ring-black/20"
+                className="pitch relative w-full h-full rounded-lg shadow-lg ring-1 ring-black/20"
                 role="region"
                 aria-label="Futbol sahası">
                 <PitchMarkings />
@@ -49,13 +49,19 @@ export const Pitch = ({
                     const playerId = assignments[s.id];
                     const player = playerId ? playerById[playerId] : undefined;
                     const filled = !!player;
+                    const isPicked = filled && selectedPlayerId === playerId;
+                    // Ready means: a swap/place target. Includes filled
+                    // slots (so the user can see they can swap), excludes
+                    // the currently picked slot itself.
                     const ready =
-                        (!!selectedPlayerId && !filled) ||
+                        (!!selectedPlayerId && !isPicked) ||
                         dragOverSlot === s.id;
-                    const isPicked =
-                        filled && selectedPlayerId === playerId;
                     const activate = () =>
                         filled ? onSlotPlayerClick(s.id) : onSlotClick(s.id);
+                    const slotOvr = filled
+                        ? computeOverall(player!.stats, s.role)
+                        : 0;
+
                     return (
                         <div
                             key={s.id}
@@ -110,53 +116,21 @@ export const Pitch = ({
                             aria-label={
                                 filled
                                     ? isPicked
-                                        ? `${player!.name}, ${s.role}, seçili — iptal için tıkla`
+                                        ? `${player!.name}, ${s.role}, OVR ${slotOvr}, seçili — iptal için tıkla`
                                         : selectedPlayerId
-                                          ? `${player!.name}, ${s.role}, takas için tıkla`
-                                          : `${player!.name}, ${s.role}, almak için tıkla`
+                                          ? `${player!.name}, ${s.role}, OVR ${slotOvr}, takas için tıkla`
+                                          : `${player!.name}, ${s.role}, OVR ${slotOvr}, almak için tıkla`
                                     : selectedPlayerId
                                       ? `Boş ${s.role} pozisyonu, yerleştirmek için tıkla`
                                       : `Boş ${s.role} pozisyonu`
                             }>
                             {filled ? (
-                                <span
-                                    className={`player-token ${player!.photoUrl ? "has-photo" : ""} ${isPicked ? "selected" : ""}`}
-                                    style={{
-                                        backgroundColor: teamColor,
-                                        backgroundImage: player!.photoUrl
-                                            ? `url(${player!.photoUrl})`
-                                            : undefined,
-                                    }}>
-                                    <span className="player-token-num">
-                                        {player!.number}
-                                    </span>
-                                    <span className="player-token-name">
-                                        {player!.name}
-                                    </span>
-                                    {onSlotPlayerRemove && (
-                                        <span
-                                            role="button"
-                                            tabIndex={0}
-                                            className="player-token-remove"
-                                            aria-label={`${player!.name} oyuncusunu kaldır`}
-                                            title="Sahadan kaldır"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onSlotPlayerRemove(s.id);
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    onSlotPlayerRemove(s.id);
-                                                }
-                                            }}
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            draggable={false}>
-                                            <span className="iconify lucide--x size-3" />
-                                        </span>
-                                    )}
-                                </span>
+                                <PlayerTile
+                                    player={player!}
+                                    position={s.role}
+                                    teamColor={teamColor}
+                                    selected={!!isPicked}
+                                />
                             ) : (
                                 <span className="empty-slot">
                                     <span className="empty-slot-role">{s.role}</span>
@@ -191,13 +165,6 @@ const PitchMarkings = () => (
         />
         <path d="M 0 1 A 1 1 0 0 0 1 0" className="pitch-line" fill="none" />
         <path d="M 67 0 A 1 1 0 0 0 68 1" className="pitch-line" fill="none" />
-        <rect
-            x="30.34"
-            y="-1.6"
-            width="7.32"
-            height="1.6"
-            className="pitch-line"
-        />
 
         <rect x="13.84" y="88.5" width="40.32" height="16.5" className="pitch-line" />
         <rect x="24.84" y="99.5" width="18.32" height="5.5" className="pitch-line" />
@@ -209,12 +176,5 @@ const PitchMarkings = () => (
         />
         <path d="M 1 105 A 1 1 0 0 0 0 104" className="pitch-line" fill="none" />
         <path d="M 68 104 A 1 1 0 0 0 67 105" className="pitch-line" fill="none" />
-        <rect
-            x="30.34"
-            y="105"
-            width="7.32"
-            height="1.6"
-            className="pitch-line"
-        />
     </svg>
 );

@@ -1,36 +1,29 @@
 "use client";
 
-import type { FormationKey, Team } from "@/types/team";
 import { FORMATION_LIST } from "@/lib/formations";
-
-const TEAM_COLORS = [
-    "#a78bfa",
-    "#f87171",
-    "#34d399",
-    "#60a5fa",
-    "#fbbf24",
-    "#f472b6",
-    "#22d3ee",
-    "#1e2832",
-];
+import type { FormationKey, Team } from "@/types/team";
 
 type ControlsPanelProps = {
     team: Team;
     onTeamNameChange: (name: string) => void;
-    onTeamColorChange: (color: string) => void;
     onFormationChange: (formation: FormationKey) => void;
+    onAutoFillLineup?: () => void;
     assignedCount: number;
     slotsCount: number;
+    benchSize: number;
 };
 
 export const ControlsPanel = ({
     team,
     onTeamNameChange,
-    onTeamColorChange,
     onFormationChange,
+    onAutoFillLineup,
     assignedCount,
     slotsCount,
+    benchSize,
 }: ControlsPanelProps) => {
+    const lineupIncomplete = assignedCount < slotsCount;
+    const canAutoFill = lineupIncomplete && benchSize > 0;
     return (
         <div className="card card-border bg-base-100 h-full overflow-hidden">
             <div className="card-body p-4 gap-4 flex flex-col h-full overflow-auto">
@@ -46,30 +39,6 @@ export const ControlsPanel = ({
                         placeholder="Takım adı"
                         className="input input-sm w-full"
                     />
-                    <div
-                        className="flex flex-wrap items-center gap-1.5 mt-1"
-                        role="radiogroup"
-                        aria-label="Takım rengi">
-                        {TEAM_COLORS.map((c) => {
-                            const active = team.color === c;
-                            return (
-                                <button
-                                    key={c}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={active}
-                                    onClick={() => onTeamColorChange(c)}
-                                    aria-label={`${c} rengini seç`}
-                                    className={`size-6 rounded-full ring-offset-base-100 transition-transform ${
-                                        active
-                                            ? "ring-2 ring-base-content ring-offset-2 scale-110"
-                                            : "ring-1 ring-base-300 hover:scale-105"
-                                    }`}
-                                    style={{ backgroundColor: c }}
-                                />
-                            );
-                        })}
-                    </div>
                 </fieldset>
 
                 <fieldset className="fieldset">
@@ -125,6 +94,17 @@ export const ControlsPanel = ({
                         value={assignedCount}
                         max={slotsCount}
                     />
+                    {onAutoFillLineup && (
+                        <button
+                            type="button"
+                            onClick={onAutoFillLineup}
+                            disabled={!canAutoFill}
+                            className="btn btn-sm w-full mt-2 gap-2"
+                            title="Yedekteki en iyi oyuncuları boş slotlara yerleştirir">
+                            <span className="iconify lucide--wand-sparkles size-4" />
+                            Otomatik doldur
+                        </button>
+                    )}
                 </fieldset>
             </div>
         </div>

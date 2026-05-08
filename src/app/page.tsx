@@ -1,21 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { Logo } from "@/components/Logo";
+import { AppHeader } from "@/components/AppHeader";
+import { Drawer } from "@/components/Drawer";
+import { ExportModal, ImportModal } from "@/components/MatchIO";
+import { ConfirmDeleteModal } from "@/components/lineup/ConfirmDeleteModal";
 import { ControlsPanel } from "@/components/lineup/ControlsPanel";
+import { DragDropOverlay } from "@/components/lineup/DragDropOverlay";
+import { EditPlayerModal } from "@/components/lineup/EditPlayerModal";
+import { MobileDrawerNav } from "@/components/lineup/MobileDrawerNav";
 import { Pitch } from "@/components/lineup/Pitch";
+import { PlayerPickerModal } from "@/components/lineup/PlayerPickerModal";
 import { RosterPanel } from "@/components/lineup/RosterPanel";
-import { useCloudSync, type CloudSyncStatus } from "@/hooks/use-cloud-sync";
+import { SelectionBar } from "@/components/lineup/SelectionBar";
+import { TeamRatingBar } from "@/components/lineup/TeamRatingBar";
+import { useCloudSync } from "@/hooks/use-cloud-sync";
+import { useFileDrop } from "@/hooks/use-file-drop";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { FORMATIONS } from "@/lib/formations";
 import { parseImport } from "@/lib/match-format";
-import { DEFAULT_MATCH } from "@/lib/team-defaults";
+import {
+    DEFAULT_STATS,
+    computeOverall,
+    computeTeamRating,
+} from "@/lib/player-stats";
+import { DEFAULT_MATCH, SIDE_COLORS } from "@/lib/team-defaults";
 import type { FormationKey, Match, Player, Side, Team } from "@/types/team";
 
-const STORAGE_KEY = "__OFFICE_FOOTBALL_MATCH_v1__";
+const STORAGE_KEY = "__OFFICE_FOOTBALL_MATCH_v2__";
 const SIDES: Side[] = ["red", "blue"];
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+const pickRandomEmptySlot = (team: Team): string | null => {
+    const slots = FORMATIONS[team.formation].slots;
+    const empty = slots.filter((s) => !team.assignments[s.id]).map((s) => s.id);
+    if (empty.length === 0) return null;
+    return empty[Math.floor(Math.random() * empty.length)];
+};
 
 const HomePage = () => {
     const [match, setMatch, matchLoaded] = useLocalStorage<Match>(
@@ -23,36 +46,36 @@ const HomePage = () => {
         DEFAULT_MATCH,
     );
     const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-    const [dragActive, setDragActive] = useState(false);
     const [rosterOpen, setRosterOpen] = useState(false);
     const [controlsOpen, setControlsOpen] = useState(false);
-    const dragDepthRef = useRef(0);
+    // Modal state lives at the page root so the modals don't render
+    // inside the drawer aside (which is transformed off-screen on mobile).
+    const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+    const [confirmingDelete, setConfirmingDelete] = useState<Player | null>(null);
+    const [pickingForSlot, setPickingForSlot] = useState<string | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const cloudStatus = useCloudSync(match, setMatch, matchLoaded);
 
     const closeDrawers = () => {
         setRosterOpen(false);
         setControlsOpen(false);
     };
-    const openRoster = () => {
+    const toggleRoster = () => {
         setControlsOpen(false);
-        setRosterOpen(true);
+        setRosterOpen((v) => !v);
     };
-    const openControls = () => {
+    const toggleControls = () => {
         setRosterOpen(false);
-        setControlsOpen(true);
+        setControlsOpen((v) => !v);
     };
-
-    useEffect(() => {
-        if (!rosterOpen && !controlsOpen) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") closeDrawers();
-        };
-        document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
-    }, [rosterOpen, controlsOpen]);
 
     const activeSide = match.activeSide;
     const activeTeam = match[activeSide];
+    const otherSide: Side = activeSide === "red" ? "blue" : "red";
+    const otherTeam = match[otherSide];
+    const activeColor = SIDE_COLORS[activeSide];
+    const otherColor = SIDE_COLORS[otherSide];
     const formation = FORMATIONS[activeTeam.formation];
 
     const playersBySide = useMemo(() => {
@@ -86,6 +109,14 @@ const HomePage = () => {
         0,
     );
 
+    const teamRatings: Record<Side, ReturnType<typeof computeTeamRating>> = useMemo(
+        () => ({
+            red: computeTeamRating(match.red, FORMATIONS[match.red.formation]),
+            blue: computeTeamRating(match.blue, FORMATIONS[match.blue.formation]),
+        }),
+        [match.red, match.blue],
+    );
+
     const updateActiveTeam = (changes: Partial<Team>) => {
         setMatch((m) => ({
             ...m,
@@ -99,10 +130,62 @@ const HomePage = () => {
         setSelectedPlayerId(null);
     };
 
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            // Don't hijack browser/system shortcuts.
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            // Don't hijack keys while the user is typing into a field.
+            const t = e.target as HTMLElement | null;
+            if (
+                t &&
+                (t.tagName === "INPUT" ||
+                    t.tagName === "TEXTAREA" ||
+                    t.isContentEditable)
+            ) {
+                return;
+            }
+
+            if (e.key === "Escape") {
+                if (rosterOpen || controlsOpen) {
+                    closeDrawers();
+                } else if (selectedPlayerId) {
+                    setSelectedPlayerId(null);
+                }
+                return;
+            }
+            if (e.key === "1") switchSide("red");
+            else if (e.key === "2") switchSide("blue");
+        };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [rosterOpen, controlsOpen, selectedPlayerId, activeSide, match]);
+
+    useEffect(() => {
+        if (!IS_DEV) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return;
+            const key = e.key.toLowerCase();
+            if (key === "e") {
+                e.preventDefault();
+                setExportOpen(true);
+            } else if (key === "m") {
+                e.preventDefault();
+                setImportOpen(true);
+            }
+        };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, []);
+
     const onSlotClick = (slotId: string) => {
-        if (!selectedPlayerId) return;
-        const sourceSlot = slotByPlayerId[selectedPlayerId] ?? null;
-        onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
+        if (selectedPlayerId) {
+            const sourceSlot = slotByPlayerId[selectedPlayerId] ?? null;
+            onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
+            return;
+        }
+        // No player selected — open a picker so the user can choose
+        // straight from the bench without first opening the roster panel.
+        setPickingForSlot(slotId);
     };
 
     const onSlotPlayerClick = (slotId: string) => {
@@ -121,7 +204,7 @@ const HomePage = () => {
         onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
     };
 
-    const onSlotPlayerRemove = (slotId: string) => {
+    const onSlotPlayerBench = (slotId: string) => {
         const playerInSlot = activeTeam.assignments[slotId];
         if (!playerInSlot) return;
         const next = { ...activeTeam.assignments, [slotId]: null };
@@ -142,21 +225,16 @@ const HomePage = () => {
         setMatch((m) => {
             const side = m.activeSide;
             const team = m[side];
-            const next: Record<string, string | null> = {
-                ...team.assignments,
-            };
+            const next: Record<string, string | null> = { ...team.assignments };
             const displaced =
                 targetSlot && next[targetSlot] != null ? next[targetSlot] : null;
 
-            // 1) Clear every slot that currently holds this player
             for (const k of Object.keys(next)) {
                 if (next[k] === playerId) next[k] = null;
             }
-            // 2) Slot→slot swap: send displaced player back into the source
             if (sourceSlot && displaced && displaced !== playerId) {
                 next[sourceSlot] = displaced;
             }
-            // 3) Place the dragged player into the target slot
             if (targetSlot) {
                 next[targetSlot] = playerId;
             }
@@ -181,8 +259,24 @@ const HomePage = () => {
             name,
             number,
             ...(photoUrl ? { photoUrl } : {}),
+            stats: { ...DEFAULT_STATS },
         };
-        updateActiveTeam({ roster: [...activeTeam.roster, player] });
+        setMatch((m) => {
+            const side = m.activeSide;
+            const team = m[side];
+            const slot = pickRandomEmptySlot(team);
+            const nextAssignments = slot
+                ? { ...team.assignments, [slot]: id }
+                : team.assignments;
+            return {
+                ...m,
+                [side]: {
+                    ...team,
+                    roster: [...team.roster, player],
+                    assignments: nextAssignments,
+                },
+            };
+        });
     };
 
     const onRemovePlayer = (id: string) => {
@@ -199,35 +293,46 @@ const HomePage = () => {
 
     const onUpdatePlayer = (id: string, changes: Partial<Player>) => {
         updateActiveTeam({
-            roster: activeTeam.roster.map((p) => (p.id === id ? { ...p, ...changes } : p)),
+            roster: activeTeam.roster.map((p) =>
+                p.id === id ? { ...p, ...changes } : p,
+            ),
         });
     };
 
     const onMovePlayerToOtherTeam = (id: string) => {
-        const player = activeTeam.roster.find((p) => p.id === id);
-        if (!player) return;
-        const otherSide: Side = activeSide === "red" ? "blue" : "red";
-        const otherTeam = match[otherSide];
+        setMatch((m) => {
+            const fromSide = m.activeSide;
+            const toSide: Side = fromSide === "red" ? "blue" : "red";
+            const fromTeam = m[fromSide];
+            const toTeam = m[toSide];
+            const player = fromTeam.roster.find((p) => p.id === id);
+            if (!player) return m;
 
-        const newCurrentRoster = activeTeam.roster.filter((p) => p.id !== id);
-        const newCurrentAssignments: Record<string, string | null> = {
-            ...activeTeam.assignments,
-        };
-        for (const k of Object.keys(newCurrentAssignments)) {
-            if (newCurrentAssignments[k] === id) newCurrentAssignments[k] = null;
-        }
+            const fromAssignments: Record<string, string | null> = {
+                ...fromTeam.assignments,
+            };
+            for (const k of Object.keys(fromAssignments)) {
+                if (fromAssignments[k] === id) fromAssignments[k] = null;
+            }
 
-        setMatch({
-            ...match,
-            [activeSide]: {
-                ...activeTeam,
-                roster: newCurrentRoster,
-                assignments: newCurrentAssignments,
-            },
-            [otherSide]: {
-                ...otherTeam,
-                roster: [...otherTeam.roster, player],
-            },
+            const slot = pickRandomEmptySlot(toTeam);
+            const toAssignments = slot
+                ? { ...toTeam.assignments, [slot]: id }
+                : toTeam.assignments;
+
+            return {
+                ...m,
+                [fromSide]: {
+                    ...fromTeam,
+                    roster: fromTeam.roster.filter((p) => p.id !== id),
+                    assignments: fromAssignments,
+                },
+                [toSide]: {
+                    ...toTeam,
+                    roster: [...toTeam.roster, player],
+                    assignments: toAssignments,
+                },
+            };
         });
         if (selectedPlayerId === id) setSelectedPlayerId(null);
     };
@@ -237,9 +342,53 @@ const HomePage = () => {
         updateActiveTeam({ formation: key, assignments: {} });
     };
 
+    // Greedy fill: for each empty slot, pick the bench player with the
+    // highest position-specific OVR. Only touches empty slots — never
+    // displaces a player that's already on the pitch.
+    const onAutoFillLineup = () => {
+        const slots = FORMATIONS[activeTeam.formation].slots;
+        const next: Record<string, string | null> = { ...activeTeam.assignments };
+        const assignedIds = new Set(
+            Object.values(next).filter((v): v is string => !!v),
+        );
+        const benchPool = activeTeam.roster.filter(
+            (p) => !assignedIds.has(p.id),
+        );
+        if (benchPool.length === 0) return;
+
+        for (const slot of slots) {
+            if (next[slot.id] || benchPool.length === 0) continue;
+            let bestIdx = 0;
+            let bestOvr = computeOverall(benchPool[0].stats, slot.role);
+            for (let i = 1; i < benchPool.length; i++) {
+                const ovr = computeOverall(benchPool[i].stats, slot.role);
+                if (ovr > bestOvr) {
+                    bestOvr = ovr;
+                    bestIdx = i;
+                }
+            }
+            const [picked] = benchPool.splice(bestIdx, 1);
+            next[slot.id] = picked.id;
+        }
+
+        updateActiveTeam({ assignments: next });
+    };
+
     const selectedPlayer = selectedPlayerId
         ? playersBySide[activeSide][selectedPlayerId]
         : undefined;
+    const selectedPlayerSlot = selectedPlayerId
+        ? (slotByPlayerId[selectedPlayerId] ?? null)
+        : null;
+
+    const benchPlayers = useMemo(
+        () => activeTeam.roster.filter((p) => benchIds.includes(p.id)),
+        [activeTeam.roster, benchIds],
+    );
+    const pickingSlotPosition =
+        pickingForSlot
+            ? (formation.slots.find((s) => s.id === pickingForSlot)?.role ?? null)
+            : null;
 
     const handleDroppedFile = async (file: File) => {
         try {
@@ -261,167 +410,31 @@ const HomePage = () => {
         }
     };
 
-    const isFileDrag = (e: React.DragEvent) =>
-        Array.from(e.dataTransfer.types).includes("Files");
-
-    const onDragEnter = (e: React.DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        dragDepthRef.current += 1;
-        setDragActive(true);
-    };
-
-    const onDragOver = (e: React.DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
-    };
-
-    const onDragLeave = () => {
-        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-        if (dragDepthRef.current === 0) setDragActive(false);
-    };
-
-    const onDrop = (e: React.DragEvent) => {
-        if (!isFileDrag(e)) return;
-        e.preventDefault();
-        dragDepthRef.current = 0;
-        setDragActive(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) handleDroppedFile(file);
-    };
+    const fileDrop = useFileDrop(handleDroppedFile);
 
     return (
         <div
-            className="flex h-screen flex-col bg-base-200"
-            onDragEnter={onDragEnter}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}>
-            <header className="z-50 flex items-center justify-between gap-2 border-b border-base-300 bg-base-100 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                    <Logo />
-                    <div className="hidden sm:flex flex-col leading-tight min-w-0">
-                        <span className="text-base font-semibold truncate">
-                            Loom Football
-                        </span>
-                        <span className="text-[11px] text-base-content/60">
-                            Takım Yönetimi
-                        </span>
-                    </div>
-                </div>
+            className="app-root flex h-screen flex-col bg-base-200/85"
+            {...fileDrop.bind}>
+            <AppHeader
+                teamNames={{ red: match.red.name, blue: match.blue.name }}
+                activeSide={activeSide}
+                onSwitchSide={switchSide}
+                cloudStatus={cloudStatus}
+            />
 
-                <div role="tablist" className="tabs tabs-box tabs-sm bg-base-200">
-                    {SIDES.map((side) => {
-                        const t = match[side];
-                        const active = side === activeSide;
-                        return (
-                            <button
-                                key={side}
-                                role="tab"
-                                aria-selected={active}
-                                onClick={() => switchSide(side)}
-                                className={`tab gap-2 ${active ? "tab-active" : ""}`}>
-                                <span
-                                    className="size-3 rounded-full ring-1 ring-base-content/20"
-                                    style={{ backgroundColor: t.color }}
-                                />
-                                {t.name}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    {selectedPlayer && (
-                        <div className="badge badge-primary badge-soft badge-lg gap-2 hidden md:inline-flex">
-                            <span className="iconify lucide--mouse-pointer-click size-4" />
-                            <span>
-                                <span className="font-semibold">{selectedPlayer.name}</span>{" "}
-                                yerleştir
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    onMovePlayerToOtherTeam(selectedPlayer.id)
-                                }
-                                className="btn btn-ghost btn-xs gap-1"
-                                title={`${match[activeSide === "red" ? "blue" : "red"].name} takımına taşı`}>
-                                <span className="iconify lucide--arrow-right-left size-3.5" />
-                                <span className="hidden lg:inline">
-                                    {match[activeSide === "red" ? "blue" : "red"].name}{" "}
-                                    takımına
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setSelectedPlayerId(null)}
-                                className="btn btn-ghost btn-xs btn-square"
-                                aria-label="Seçimi iptal et">
-                                <span className="iconify lucide--x size-3.5" />
-                            </button>
-                        </div>
-                    )}
-                    <SyncIndicator status={cloudStatus} />
-                </div>
-            </header>
-
-            <nav
-                className="lg:hidden flex items-stretch shrink-0 border-b border-base-300 bg-base-100"
-                aria-label="Paneller">
-                <button
-                    type="button"
-                    onClick={openRoster}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-base-content/80 hover:bg-base-200 active:bg-base-300 transition-colors">
-                    <span className="iconify lucide--users size-5" />
-                    Oyuncular
-                </button>
-                <div className="w-px bg-base-300" aria-hidden="true" />
-                <button
-                    type="button"
-                    onClick={openControls}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-base-content/80 hover:bg-base-200 active:bg-base-300 transition-colors">
-                    <span className="iconify lucide--sliders-horizontal size-5" />
-                    Takım
-                </button>
-            </nav>
+            <MobileDrawerNav
+                rosterOpen={rosterOpen}
+                controlsOpen={controlsOpen}
+                onToggleRoster={toggleRoster}
+                onToggleControls={toggleControls}
+            />
 
             <div
                 className="h-[3px] w-full shrink-0 transition-colors duration-300"
-                style={{ backgroundColor: activeTeam.color }}
+                style={{ backgroundColor: activeColor }}
                 aria-hidden="true"
             />
-
-            {selectedPlayer && (
-                <div
-                    className="md:hidden flex items-center gap-2 border-b border-primary/30 bg-primary/10 px-3 py-1.5 text-sm"
-                    role="status"
-                    aria-live="polite">
-                    <span className="iconify lucide--mouse-pointer-click size-4 shrink-0 text-primary" />
-                    <span className="min-w-0 flex-1 truncate">
-                        <span className="font-mono text-base-content/70">
-                            #{selectedPlayer.number}
-                        </span>{" "}
-                        <span className="font-semibold">{selectedPlayer.name}</span>{" "}
-                        <span className="text-base-content/60">yerleştir</span>
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => onMovePlayerToOtherTeam(selectedPlayer.id)}
-                        className="btn btn-ghost btn-xs btn-square shrink-0"
-                        aria-label={`${match[activeSide === "red" ? "blue" : "red"].name} takımına taşı`}
-                        title={`${match[activeSide === "red" ? "blue" : "red"].name} takımına`}>
-                        <span className="iconify lucide--arrow-right-left size-3.5" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSelectedPlayerId(null)}
-                        className="btn btn-ghost btn-xs btn-square shrink-0"
-                        aria-label="Seçimi iptal et">
-                        <span className="iconify lucide--x size-3.5" />
-                    </button>
-                </div>
-            )}
 
             <main className="relative grid grow grid-cols-1 gap-3 overflow-hidden p-3 lg:grid-cols-[260px_1fr_260px] xl:grid-cols-[260px_1fr_1fr_260px]">
                 {(rosterOpen || controlsOpen) && (
@@ -433,10 +446,7 @@ const HomePage = () => {
                     />
                 )}
 
-                <aside
-                    className={`order-2 lg:order-1 min-h-0 absolute inset-y-0 left-0 z-40 w-80 max-w-[85vw] transform transition-transform duration-200 ease-out bg-base-200 shadow-2xl lg:static lg:inset-auto lg:w-auto lg:max-w-none lg:bg-transparent lg:shadow-none lg:translate-x-0 ${
-                        rosterOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-                    }`}>
+                <Drawer side="left" open={rosterOpen}>
                     <RosterPanel
                         roster={activeTeam.roster}
                         benchIds={benchIds}
@@ -447,17 +457,13 @@ const HomePage = () => {
                             if (id) setRosterOpen(false);
                         }}
                         onAddPlayer={onAddPlayer}
-                        onRemovePlayer={onRemovePlayer}
-                        onUpdatePlayer={onUpdatePlayer}
-                        onMoveToOtherTeam={onMovePlayerToOtherTeam}
+                        onEditPlayer={setEditingPlayer}
+                        onRequestDeletePlayer={setConfirmingDelete}
                         onPlacePlayer={onPlacePlayer}
                         teamName={activeTeam.name}
-                        teamColor={activeTeam.color}
-                        otherTeamName={
-                            match[activeSide === "red" ? "blue" : "red"].name
-                        }
+                        teamColor={activeColor}
                     />
-                </aside>
+                </Drawer>
 
                 {SIDES.map((side) => {
                     const team = match[side];
@@ -470,9 +476,6 @@ const HomePage = () => {
                         ? onSlotPlayerClick
                         : () => switchSide(side);
                     const onSideSlotDrop = isActive ? onPlacePlayer : undefined;
-                    const onSideSlotPlayerRemove = isActive
-                        ? onSlotPlayerRemove
-                        : undefined;
 
                     return (
                         <div
@@ -480,24 +483,18 @@ const HomePage = () => {
                             className={`order-1 lg:order-2 min-h-0 flex-col items-center justify-center gap-2 ${
                                 isActive ? "flex" : "hidden xl:flex"
                             }`}>
-                            <div className="flex items-center gap-2 text-sm">
-                                <span
-                                    className="size-3 rounded-full ring-1 ring-base-content/20"
-                                    style={{ backgroundColor: team.color }}
+                            <div className="w-full max-w-[420px]">
+                                <TeamRatingBar
+                                    rating={teamRatings[side]}
+                                    teamColor={SIDE_COLORS[side]}
+                                    teamName={team.name}
                                 />
-                                <span className="font-semibold">{team.name}</span>
-                                <span
-                                    className={`badge badge-xs hidden xl:inline-flex ${
-                                        isActive ? "badge-primary" : "badge-ghost"
-                                    }`}>
-                                    {isActive ? "Aktif" : "Düzenlemek için tıkla"}
-                                </span>
                             </div>
                             <div
                                 className={`w-full max-w-[420px] rounded-lg transition ${
                                     isActive
                                         ? "xl:ring-2 xl:ring-primary/50 xl:ring-offset-2 xl:ring-offset-base-200"
-                                        : "xl:opacity-60 xl:hover:opacity-100 xl:cursor-pointer"
+                                        : "xl:opacity-70 xl:cursor-pointer"
                                 }`}>
                                 <Pitch
                                     formation={teamFormation}
@@ -506,102 +503,89 @@ const HomePage = () => {
                                     selectedPlayerId={isActive ? selectedPlayerId : null}
                                     onSlotClick={onSideSlotClick}
                                     onSlotPlayerClick={onSideSlotPlayerClick}
-                                    onSlotPlayerRemove={onSideSlotPlayerRemove}
                                     onSlotDrop={onSideSlotDrop}
-                                    teamColor={team.color}
+                                    teamColor={SIDE_COLORS[side]}
                                 />
                             </div>
                         </div>
                     );
                 })}
 
-                <aside
-                    className={`order-3 min-h-0 absolute inset-y-0 right-0 z-40 w-80 max-w-[85vw] transform transition-transform duration-200 ease-out bg-base-200 shadow-2xl lg:static lg:inset-auto lg:w-auto lg:max-w-none lg:bg-transparent lg:shadow-none lg:translate-x-0 ${
-                        controlsOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-                    }`}>
+                <Drawer side="right" open={controlsOpen}>
                     <ControlsPanel
                         team={activeTeam}
                         onTeamNameChange={(name) => updateActiveTeam({ name })}
-                        onTeamColorChange={(color) => updateActiveTeam({ color })}
                         onFormationChange={onFormationChange}
+                        onAutoFillLineup={onAutoFillLineup}
                         assignedCount={assignedCount}
                         slotsCount={formation.slots.length}
+                        benchSize={benchIds.length}
                     />
-                </aside>
+                </Drawer>
             </main>
 
-            {dragActive && (
-                <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-base-100/85 backdrop-blur-sm">
-                    <div className="pointer-events-none rounded-box border-2 border-dashed border-primary bg-primary/10 px-10 py-8 text-center">
-                        <span className="iconify lucide--file-up size-12 text-primary block mx-auto" />
-                        <div className="text-xl font-semibold mt-2">
-                            Maçı içe aktarmak için JSON bırak
-                        </div>
-                        <div className="text-xs text-base-content/60 mt-1">
-                            Mevcut maçın üzerine yazılır. Bulut kaydı senkronlar.
-                        </div>
-                    </div>
-                </div>
+            <SelectionBar
+                selectedPlayer={selectedPlayer}
+                selectedPlayerSlot={selectedPlayerSlot}
+                otherTeamName={otherTeam.name}
+                otherTeamColor={otherColor}
+                onEdit={setEditingPlayer}
+                onSendToBench={onSlotPlayerBench}
+                onMoveToOtherTeam={onMovePlayerToOtherTeam}
+                onCancel={() => setSelectedPlayerId(null)}
+            />
+
+            <DragDropOverlay visible={fileDrop.active} />
+
+            <EditPlayerModal
+                player={editingPlayer}
+                teamColor={activeColor}
+                onClose={() => setEditingPlayer(null)}
+                onSave={(id, changes) => {
+                    onUpdatePlayer(id, changes);
+                    setEditingPlayer(null);
+                }}
+            />
+            <ConfirmDeleteModal
+                player={confirmingDelete}
+                onClose={() => setConfirmingDelete(null)}
+                onConfirm={() => {
+                    if (confirmingDelete) onRemovePlayer(confirmingDelete.id);
+                    setConfirmingDelete(null);
+                }}
+            />
+            <PlayerPickerModal
+                open={pickingForSlot !== null}
+                slotPosition={pickingSlotPosition}
+                benchPlayers={benchPlayers}
+                teamColor={activeColor}
+                onClose={() => setPickingForSlot(null)}
+                onPick={(playerId) => {
+                    if (pickingForSlot) {
+                        onPlacePlayer(playerId, pickingForSlot, null);
+                    }
+                    setPickingForSlot(null);
+                }}
+            />
+            {IS_DEV && (
+                <>
+                    <ExportModal
+                        open={exportOpen}
+                        onClose={() => setExportOpen(false)}
+                        match={match}
+                    />
+                    <ImportModal
+                        open={importOpen}
+                        onClose={() => setImportOpen(false)}
+                        onImport={(teams) => {
+                            setMatch((prev) => ({ ...teams, activeSide: prev.activeSide }));
+                            setSelectedPlayerId(null);
+                        }}
+                    />
+                </>
             )}
         </div>
     );
 };
 
 export default HomePage;
-
-const SYNC_LABELS: Record<CloudSyncStatus, { label: string; icon: string; tone: string }> = {
-    disabled: {
-        label: "Bulut kapalı",
-        icon: "lucide--cloud-off",
-        tone: "text-base-content/40",
-    },
-    idle: {
-        label: "Senkron",
-        icon: "lucide--cloud",
-        tone: "text-base-content/60",
-    },
-    pulling: {
-        label: "Senkronlanıyor…",
-        icon: "lucide--cloud-download",
-        tone: "text-info",
-    },
-    saving: {
-        label: "Kaydediliyor…",
-        icon: "lucide--loader",
-        tone: "text-info",
-    },
-    saved: {
-        label: "Kaydedildi",
-        icon: "lucide--cloud-check",
-        tone: "text-success",
-    },
-    conflict: {
-        label: "Uzaktan güncellendi",
-        icon: "lucide--cloud-alert",
-        tone: "text-warning",
-    },
-    error: {
-        label: "Kayıt başarısız",
-        icon: "lucide--cloud-alert",
-        tone: "text-error",
-    },
-};
-
-const SyncIndicator = ({ status }: { status: CloudSyncStatus }) => {
-    const { label, icon, tone } = SYNC_LABELS[status];
-    const isBusy = status === "saving" || status === "pulling";
-    return (
-        <div
-            className={`inline-flex items-center gap-1.5 text-xs ${tone}`}
-            role="status"
-            aria-live="polite"
-            title={label}>
-            {isBusy ? (
-                <span className="loading loading-spinner loading-xs" />
-            ) : (
-                <span className={`iconify ${icon} size-3.5`} />
-            )}
-            <span className="hidden sm:inline">{label}</span>
-        </div>
-    );
-};

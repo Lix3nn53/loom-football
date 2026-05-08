@@ -1,10 +1,15 @@
 export type Position = "GK" | "DEF" | "MID" | "FWD";
 
+export type StatKey = "pac" | "sho" | "pas" | "dri" | "def" | "phy";
+
+export type PlayerStats = Record<StatKey, number>;
+
 export type Player = {
     id: string;
     name: string;
     number: number;
     photoUrl?: string;
+    stats: PlayerStats;
 };
 
 export type FormationKey = "4-4-2" | "4-3-3" | "4-2-3-1" | "3-5-2" | "3-4-3" | "5-3-2";
@@ -24,7 +29,6 @@ export type Formation = {
 
 export type Team = {
     name: string;
-    color: string;
     formation: FormationKey;
     roster: Player[];
     assignments: Record<string, string | null>;

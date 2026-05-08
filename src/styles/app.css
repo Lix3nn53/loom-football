@@ -9,6 +9,8 @@
 
 /* Page wise */
 @import "./pages/pitch.css";
+@import "./pages/player-stats.css";
+@import "./pages/poster.css";
 
 /* Plugin Overriding */
 @import "./plugins/scrollbar.css";

@@ -1,0 +1,47 @@
+/* Poster watermark behind the whole app + helpers for using the poster
+   as a player photo fallback. The watermark is heavily blurred and
+   dimmed so it just adds an ambient color wash in the gaps between
+   panels — content panels are still opaque enough to dominate. */
+
+.app-root {
+    position: relative;
+    isolation: isolate;
+}
+
+.app-root::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        url("/poster.png") center / cover no-repeat;
+    filter: blur(1px) brightness(0.8) saturate(1.2);
+    opacity: 0.85;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Poster used as a player photo fallback. Centered on the character;
+   number badge sits over the bottom-right corner so the player can
+   still be told apart from teammates. */
+
+.poster-photo {
+    background-image: url("/poster_zoom.png");
+    background-size: cover;
+    background-position: 35% 35%;
+}
+
+.poster-photo-num {
+    /* Centered pill — relies on the parent photo's flex centering. Avoids
+       being clipped by the parent's overflow: hidden (used to round the
+       bg-image into a circle). */
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-weight: 800;
+    line-height: 1;
+    border-radius: 9999px;
+    padding: 2px 6px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(2px);
+    z-index: 2;
+}

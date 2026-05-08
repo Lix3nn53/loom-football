@@ -1,14 +1,19 @@
 .pitch-wrapper {
-    @apply relative w-full mx-auto;
+    @apply relative mx-auto;
     aspect-ratio: 68 / 105;
-    /* Mobile: panels live in side drawers, so the pitch fills what's left
-       of the viewport below the header. svh accounts for iOS URL bar. */
-    max-height: calc(100svh - 5rem);
+    /* Pick the smaller of (full parent width) and (what fits vertically at
+       the right aspect ratio). When the height-derived value wins, aspect
+       ratio is preserved because width is then the limiting dimension and
+       height follows from aspect-ratio. The reserved chrome covers
+       header + mobile drawer nav + color stripe + team rating bar +
+       bottom selection bar + main padding. */
+    width: min(100%, calc((100svh - 17rem) * 68 / 105));
 }
 
 @media (min-width: 1024px) {
     .pitch-wrapper {
-        max-height: calc(100vh - 9rem);
+        /* No mobile drawer nav on lg+, so less chrome to reserve. */
+        width: min(100%, calc((100vh - 14rem) * 68 / 105));
     }
 }
 
@@ -36,10 +41,6 @@
     background-color: #226c2c;
 }
 
-.pitch-markings {
-    overflow: visible;
-}
-
 .pitch-line {
     fill: none;
     stroke: rgba(255, 255, 255, 0.7);
@@ -52,139 +53,185 @@
     stroke: none;
 }
 
+/* Slot is a portrait-oriented anchor — the tile fills it, anchored at
+   the slot's centerpoint. Width is a percentage of pitch width; height
+   follows from the 5:7 aspect ratio (slightly more portrait than 3:4).
+   Wing-back tiles at x=8/x=92 in 5-3-2 / 3-5-2 extend ~1% past the pitch
+   edge, which is fine because .pitch no longer clips overflow. */
 .pitch-slot {
-    @apply absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-0 p-0 bg-transparent;
-    width: 16%;
-    aspect-ratio: 1 / 1;
+    @apply absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer p-0 bg-transparent border-0;
+    width: 18%;
+    aspect-ratio: 5 / 7;
 }
 
 .pitch-slot:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 3px;
-    border-radius: 9999px;
+    border-radius: 0.6rem;
 }
 
-.player-token,
-.empty-slot {
-    @apply flex w-full h-full rounded-full items-center justify-center;
+/* Player tile — outer wrapper holds the floating X button; inner body
+   carries the visual treatment (border, gradient, rounded corners) and
+   clips its own children. Splitting them lets the X overflow the body
+   without the body needing overflow: visible. */
+
+.player-tile {
+    --tile-accent: #888;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    color: #fff;
+}
+
+.player-tile-body {
+    @apply flex flex-col w-full h-full overflow-hidden;
+    border-radius: 0.55rem;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--tile-accent) 55%, rgba(0, 0, 0, 0.55)) 0%,
+            rgba(0, 0, 0, 0.7) 100%
+        );
+    border: 1px solid color-mix(in srgb, var(--tile-accent) 70%, rgba(255, 255, 255, 0.2));
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
     transition:
         transform 120ms ease-out,
-        background-color 150ms,
-        border-color 150ms,
-        box-shadow 150ms;
+        box-shadow 150ms,
+        border-color 150ms;
 }
 
-.player-token {
-    @apply relative flex-col text-white overflow-hidden;
+.empty-slot {
+    @apply flex flex-col w-full h-full overflow-hidden items-center justify-center;
+    border-radius: 0.55rem;
+    background: rgba(0, 0, 0, 0.18);
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+    transition:
+        transform 120ms ease-out,
+        box-shadow 150ms,
+        border-color 150ms;
+}
+
+.player-tile-head {
+    @apply flex items-center justify-between px-1.5 leading-none;
+    height: 18%;
+    background: rgba(0, 0, 0, 0.35);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.player-tile-ovr {
+    font-size: 11px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+.player-tile-pos {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.player-tile-photo-wrap {
+    @apply flex items-center justify-center;
+    flex-grow: 1;
+    padding: 4px;
+    min-height: 0;
+    /* Make this a size container so the photo can use the smaller of the
+       wrap's dimensions to stay a perfect circle even when the wrap is
+       not square. */
+    container-type: size;
+}
+
+.player-tile-photo {
+    position: relative;
+    width: min(100cqw, 100cqh);
+    aspect-ratio: 1 / 1;
+    border-radius: 9999px;
+    background-color: var(--tile-accent);
     background-size: cover;
     background-position: center;
     box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.35),
-        inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+        inset 0 0 0 2px rgba(255, 255, 255, 0.85),
+        0 1px 3px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
 }
 
-.player-token.has-photo::before {
-    content: "";
-    @apply absolute inset-0 rounded-full pointer-events-none;
-    background: linear-gradient(
-        to top,
-        rgba(0, 0, 0, 0.7) 0%,
-        rgba(0, 0, 0, 0.2) 55%,
-        rgba(0, 0, 0, 0) 100%
-    );
-    z-index: 1;
-}
-
-.player-token-num,
-.player-token-name {
-    position: relative;
+/* Tiny number badge on the bottom-right of a real player photo. Sits
+   inside the circle so the parent's overflow: hidden doesn't clip it.
+   For poster fallback we use the centered .poster-photo-num pill instead. */
+.player-tile-num-corner {
+    position: absolute;
+    bottom: 5%;
+    right: 5%;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
     z-index: 2;
 }
 
-.player-token-num {
-    @apply text-base font-bold leading-none;
+.player-tile-photo-fallback {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+    letter-spacing: 0.02em;
 }
 
-.player-token-name {
-    @apply mt-0.5 max-w-[90%] truncate px-1 text-[9px] font-medium leading-tight;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+.player-tile-name {
+    @apply truncate text-center px-1;
+    height: 24%;
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.55);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
 }
 
-.empty-slot {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px dashed rgba(255, 255, 255, 0.5);
+/* Tap feedback (mobile-first — no hover-only states). */
+
+.pitch-slot:active .player-tile-body,
+.pitch-slot:active .empty-slot {
+    transform: scale(0.97);
+}
+
+/* Picked = the currently selected player's slot (or its tile when shown
+   on a roster). Uses the accent color so it's visibly distinct from
+   "ready" swap/place targets. */
+.pitch-slot[data-picked] .player-tile-body,
+.player-tile.is-selected .player-tile-body {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.55),
+        0 0 0 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
+    animation: pitch-pulse-accent 1.6s ease-in-out infinite;
 }
 
 .empty-slot-role {
-    @apply text-[10px] font-semibold tracking-wide;
-    color: rgba(255, 255, 255, 0.9);
+    @apply text-[10px] font-bold tracking-wider;
+    color: rgba(255, 255, 255, 0.85);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-.pitch-slot:hover .empty-slot {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.85);
-}
-
-.pitch-slot:hover .player-token {
-    box-shadow:
-        0 3px 10px rgba(0, 0, 0, 0.4),
-        inset 0 0 0 2px rgba(255, 255, 255, 1);
-}
-
-.pitch-slot[data-picked] .player-token,
-.player-token.selected {
-    outline: 3px solid var(--color-primary);
-    outline-offset: 3px;
-    box-shadow:
-        0 3px 10px rgba(0, 0, 0, 0.4),
-        inset 0 0 0 2px rgba(255, 255, 255, 1),
-        0 0 0 6px color-mix(in srgb, var(--color-primary) 25%, transparent);
-    animation: pitch-pulse 1.6s ease-in-out infinite;
-}
-
-.player-token-remove {
-    @apply absolute flex items-center justify-center rounded-full;
-    top: -6px;
-    right: -6px;
-    width: 20px;
-    height: 20px;
-    background: rgba(0, 0, 0, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    color: #fff;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 3;
-    transition:
-        opacity 150ms,
-        transform 150ms,
-        background-color 150ms;
-}
-
-.pitch-slot:hover .player-token-remove,
-.pitch-slot:focus-visible .player-token-remove,
-.pitch-slot[data-picked] .player-token-remove {
-    opacity: 1;
-}
-
-.player-token-remove:hover {
-    background: #ef4444;
-    transform: scale(1.1);
-}
-
-.player-token-remove:focus-visible {
-    opacity: 1;
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-}
-
-@media (hover: none) {
-    .player-token-remove {
-        opacity: 1;
-    }
-}
-
+/* Ready = a valid place / swap target while a player is selected. Filled
+   and empty slots both light up so the user knows they can swap onto an
+   already-occupied slot too. Uses the primary color (distinct from the
+   accent-colored picked state). */
 .pitch-slot[data-ready] .empty-slot {
     background: color-mix(in srgb, var(--color-primary) 25%, transparent);
     border-color: var(--color-primary);
@@ -192,12 +239,39 @@
     animation: pitch-pulse 1.6s ease-in-out infinite;
 }
 
+.pitch-slot[data-ready] .player-tile-body {
+    outline: 2px dashed var(--color-primary);
+    outline-offset: 2px;
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.5),
+        0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+
 @keyframes pitch-pulse {
     0%,
     100% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 60%, transparent);
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.55),
+            0 0 0 4px color-mix(in srgb, var(--color-primary) 50%, transparent);
     }
     50% {
-        box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, transparent);
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.55),
+            0 0 0 9px color-mix(in srgb, var(--color-primary) 0%, transparent);
+    }
+}
+
+@keyframes pitch-pulse-accent {
+    0%,
+    100% {
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.55),
+            0 0 0 4px color-mix(in srgb, var(--color-accent) 55%, transparent);
+    }
+    50% {
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, 0.55),
+            0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent);
     }
 }
