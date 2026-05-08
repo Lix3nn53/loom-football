@@ -1,0 +1,32 @@
+version: 1
+frontend:
+    phases:
+        preBuild:
+            commands:
+                - npm ci
+        build:
+            commands:
+                # Only write env vars if they're set (prevents empty values)
+                # This ensures Next.js can access server-side environment variables
+                - |
+                    if [ -n "$NEXTAUTH_URL" ]; then
+                      echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production
+                    fi
+                    if [ -n "$AUTH_SECRET" ]; then
+                      echo "AUTH_SECRET=$AUTH_SECRET" >> .env.production
+                    fi
+                    if [ -n "$AUTH_GOOGLE_ID" ]; then
+                      echo "AUTH_GOOGLE_ID=$AUTH_GOOGLE_ID" >> .env.production
+                    fi
+                    if [ -n "$AUTH_GOOGLE_SECRET" ]; then
+                      echo "AUTH_GOOGLE_SECRET=$AUTH_GOOGLE_SECRET" >> .env.production
+                    fi
+                - npm run build
+    artifacts:
+        baseDirectory: .next
+        files:
+            - "**/*"
+    cache:
+        paths:
+            - node_modules/**/*
+            - .next/cache/**/*

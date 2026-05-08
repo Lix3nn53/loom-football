@@ -1,0 +1,115 @@
+.pitch-wrapper {
+    @apply relative w-full;
+    aspect-ratio: 2 / 3;
+    max-height: calc(100vh - 9rem);
+}
+
+.pitch {
+    @apply relative w-full h-full overflow-hidden rounded-box shadow-lg;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            #2f8f3f 0,
+            #2f8f3f 40px,
+            #2c8a3a 40px,
+            #2c8a3a 80px
+        );
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .pitch,
+[data-theme="dim"] .pitch,
+[data-theme="material-dark"] .pitch {
+    background:
+        repeating-linear-gradient(
+            0deg,
+            #1f6e2c 0,
+            #1f6e2c 40px,
+            #1c6628 40px,
+            #1c6628 80px
+        );
+}
+
+.pitch-markings {
+    @apply absolute inset-0 w-full h-full pointer-events-none;
+}
+
+.pitch-line {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.55);
+    stroke-width: 0.4;
+    vector-effect: non-scaling-stroke;
+}
+
+.pitch-dot {
+    fill: rgba(255, 255, 255, 0.7);
+}
+
+.pitch-slot {
+    @apply absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full transition-transform;
+    width: 18%;
+    aspect-ratio: 1 / 1;
+    background: transparent;
+    border: 0;
+    padding: 0;
+}
+
+.pitch-slot:hover {
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.pitch-slot:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 4px;
+    border-radius: 9999px;
+}
+
+.player-token {
+    @apply flex flex-col items-center justify-center w-full h-full rounded-full text-white shadow-md;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+.player-token-num {
+    @apply text-base font-bold leading-none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.player-token-name {
+    @apply mt-0.5 text-[9px] font-medium leading-tight px-1 max-w-full truncate;
+    max-width: 90%;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.empty-slot {
+    @apply flex w-full h-full items-center justify-center rounded-full;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px dashed rgba(255, 255, 255, 0.45);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.pitch-slot:hover .empty-slot {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.85);
+}
+
+.pitch-slot.ready .empty-slot {
+    background: rgba(167, 139, 250, 0.25);
+    border-color: #a78bfa;
+    animation: pitch-pulse 1.6s ease-in-out infinite;
+}
+
+.empty-slot-role {
+    @apply text-[10px] font-semibold tracking-wide;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes pitch-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(167, 139, 250, 0);
+    }
+}

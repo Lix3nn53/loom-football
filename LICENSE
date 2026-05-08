@@ -1,0 +1,13 @@
+Copyright (c) 2026 Loom Football contributors
+
+All rights reserved.
+
+This is an internal project. No license is granted for use, copying,
+modification, or distribution. If you would like to use this code,
+please contact the repository owner.
+
+---
+
+This project depends on third-party libraries (Next.js, React, Tailwind CSS,
+DaisyUI, etc.) that retain their own licenses; see each package's LICENSE
+file in node_modules for details.
