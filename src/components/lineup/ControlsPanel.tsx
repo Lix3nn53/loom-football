@@ -36,80 +36,100 @@ export const ControlsPanel = ({
     slotsCount,
 }: ControlsPanelProps) => {
     return (
-        <div className="card bg-base-100 border border-base-300 h-full overflow-hidden">
+        <div className="card card-border bg-base-100 h-full overflow-hidden">
             <div className="card-body p-4 gap-4 flex flex-col h-full overflow-auto">
-                <div>
-                    <h2 className="card-title text-lg mb-3">
-                        <span className="iconify lucide--shield size-5" />
+                <fieldset className="fieldset">
+                    <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
+                        <span className="iconify lucide--shield size-4" />
                         Team
-                    </h2>
-                    <div className="flex flex-col gap-2">
-                        <input
-                            type="text"
-                            value={team.name}
-                            onChange={(e) => onTeamNameChange(e.target.value)}
-                            placeholder="Team name"
-                            className="input input-sm w-full"
-                        />
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            {TEAM_COLORS.map((c) => (
+                    </legend>
+                    <input
+                        type="text"
+                        value={team.name}
+                        onChange={(e) => onTeamNameChange(e.target.value)}
+                        placeholder="Team name"
+                        className="input input-sm w-full"
+                    />
+                    <div
+                        className="flex flex-wrap items-center gap-1.5 mt-1"
+                        role="radiogroup"
+                        aria-label="Team color">
+                        {TEAM_COLORS.map((c) => {
+                            const active = team.color === c;
+                            return (
                                 <button
                                     key={c}
                                     type="button"
+                                    role="radio"
+                                    aria-checked={active}
                                     onClick={() => onTeamColorChange(c)}
                                     aria-label={`Pick color ${c}`}
-                                    className={`size-6 rounded-full border-2 transition-transform ${
-                                        team.color === c
-                                            ? "border-base-content scale-110"
-                                            : "border-base-300 hover:scale-105"
+                                    className={`size-6 rounded-full ring-offset-base-100 transition-transform ${
+                                        active
+                                            ? "ring-2 ring-base-content ring-offset-2 scale-110"
+                                            : "ring-1 ring-base-300 hover:scale-105"
                                     }`}
                                     style={{ backgroundColor: c }}
                                 />
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
-                </div>
+                </fieldset>
 
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium inline-flex items-center gap-2">
-                            <span className="iconify lucide--layout-grid size-4" />
-                            Formation
-                        </h3>
-                        <span className="badge badge-sm badge-ghost">{team.formation}</span>
+                <fieldset className="fieldset">
+                    <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
+                        <span className="iconify lucide--layout-grid size-4" />
+                        Formation
+                        <span className="badge badge-sm badge-ghost ml-1">
+                            {team.formation}
+                        </span>
+                    </legend>
+                    <div
+                        role="tablist"
+                        className="tabs tabs-box bg-base-200 grid grid-cols-3 gap-1 p-1">
+                        {FORMATION_LIST.map((f) => {
+                            const active = team.formation === f.key;
+                            return (
+                                <button
+                                    key={f.key}
+                                    role="tab"
+                                    type="button"
+                                    aria-selected={active}
+                                    onClick={() => onFormationChange(f.key)}
+                                    className={`tab tab-sm ${active ? "tab-active" : ""}`}>
+                                    {f.label}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                        {FORMATION_LIST.map((f) => (
-                            <button
-                                key={f.key}
-                                type="button"
-                                onClick={() => onFormationChange(f.key)}
-                                className={`btn btn-sm ${
-                                    team.formation === f.key
-                                        ? "btn-primary"
-                                        : "btn-ghost border border-base-300"
-                                }`}>
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                </fieldset>
 
-                <div>
-                    <h3 className="font-medium inline-flex items-center gap-2 mb-2">
+                <fieldset className="fieldset">
+                    <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
                         <span className="iconify lucide--bar-chart-3 size-4" />
                         Lineup
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        <Stat label="Assigned" value={`${assignedCount}/${slotsCount}`} />
-                        <Stat label="Squad" value={`${team.roster.length}`} />
+                    </legend>
+                    <div className="stats stats-horizontal w-full bg-base-200 shadow-none">
+                        <div className="stat py-2 px-3">
+                            <div className="stat-title text-xs">Assigned</div>
+                            <div className="stat-value text-lg">
+                                {assignedCount}
+                                <span className="text-base-content/40 text-base font-normal">
+                                    /{slotsCount}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="stat py-2 px-3">
+                            <div className="stat-title text-xs">Squad</div>
+                            <div className="stat-value text-lg">{team.roster.length}</div>
+                        </div>
                     </div>
                     <progress
-                        className="progress progress-primary w-full mt-2"
+                        className="progress progress-primary w-full mt-1"
                         value={assignedCount}
                         max={slotsCount}
                     />
-                </div>
+                </fieldset>
 
                 <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-base-200">
                     <button
@@ -131,10 +151,3 @@ export const ControlsPanel = ({
         </div>
     );
 };
-
-const Stat = ({ label, value }: { label: string; value: string }) => (
-    <div className="rounded-box bg-base-200 px-3 py-2">
-        <div className="text-xs text-base-content/60">{label}</div>
-        <div className="text-lg font-semibold">{value}</div>
-    </div>
-);

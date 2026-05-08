@@ -21,6 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="en" suppressHydrationWarning className="group/html">
             <head>
+                <meta name="darkreader-lock" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 {/* eslint-disable-next-line @next/next/no-sync-scripts */}

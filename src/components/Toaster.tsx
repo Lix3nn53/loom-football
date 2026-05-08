@@ -30,6 +30,6 @@ export function Toaster() {
     return () => observer.disconnect();
   }, []);
 
-  return <SonnerToaster position="top-right" richColors theme={theme} closeButton invert />;
+  return <SonnerToaster position="top-right" richColors theme={theme} closeButton />;
 }
 
