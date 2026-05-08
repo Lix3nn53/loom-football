@@ -30,29 +30,44 @@ npm run dev    # → http://localhost:3001
 
 ## Cloud sync (optional)
 
-Push/pull the match JSON between users via an Amplify Gen 2 backend (Cognito guest identity pool + S3). The app falls back gracefully if the backend isn't deployed — sync just won't work and shows "not configured".
+Push/pull the match JSON between users via a single object in a public S3 bucket. No backend code, no Cognito, no IAM role on the build pipeline — the browser does plain `fetch(PUT)` against an S3 URL set via `NEXT_PUBLIC_CLOUD_SYNC_URL`.
 
-### Local sandbox
+### One-time S3 setup
 
-```bash
-npx ampx sandbox
-```
+1. **Create a bucket** in any region (e.g. `loom-football-sync`).
+2. **Disable "Block all public access"** on the bucket.
+3. **Bucket policy** — allow `GetObject` and `PutObject` on a known prefix:
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": "*",
+          "Action": ["s3:GetObject", "s3:PutObject"],
+          "Resource": "arn:aws:s3:::loom-football-sync/shared/*"
+        }
+      ]
+    }
+    ```
+4. **CORS** — allow `GET` and `PUT` from your Amplify domain:
+    ```json
+    [
+      {
+        "AllowedOrigins": ["https://your-app.amplifyapp.com", "http://localhost:3001"],
+        "AllowedMethods": ["GET", "PUT"],
+        "AllowedHeaders": ["*"],
+        "ExposeHeaders": ["ETag"]
+      }
+    ]
+    ```
+5. Pick a hard-to-guess key under the prefix, e.g. `shared/<random-uuid>/match.json`. The full URL is `https://loom-football-sync.s3.<region>.amazonaws.com/shared/<random-uuid>/match.json`.
 
-This deploys a personal sandbox stack (auth + storage), generates `amplify_outputs.json` at the repo root, and watches `amplify/` for changes. Leave it running; in another terminal start `npm run dev`. The dev server reads `/amplify_outputs.json` from `public/`, so copy it over once the sandbox produces it:
+### Wire into the app
 
-```bash
-cp amplify_outputs.json public/amplify_outputs.json
-```
+Set `NEXT_PUBLIC_CLOUD_SYNC_URL` to the full S3 object URL — locally in `.env.local`, in production via Amplify Hosting → App settings → Environment variables. The Push/Pull buttons in the Export/Import modals start working immediately.
 
-### Production deploy (Amplify Hosting)
-
-`amplify.yml` already runs `npx ampx pipeline-deploy` in the backend phase. The frontend phase copies `amplify_outputs.json` into `public/` before `next build`. First deploy will provision the Cognito identity pool and the S3 bucket.
-
-### Sync from the UI
-
-- **Export modal → Push to cloud** writes to `shared/match.json` in S3.
-- **Import modal → Pull from cloud** reads it and replaces the local match.
-- It's last-write-wins; no conflict resolution.
+Tradeoffs: anyone with the URL can read **and** clobber the file. The "obscure path" approach is good enough for an office team. Last-write-wins; if two people push within seconds, the second wins.
 
 ## Project layout
 
