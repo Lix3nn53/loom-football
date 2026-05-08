@@ -17,10 +17,10 @@ export type IConfig = {
 };
 
 const defaultConfig: IConfig = {
-    theme: "system",
+    theme: "dark",
     direction: "ltr",
     fontFamily: "default",
-    sidebarTheme: "light",
+    sidebarTheme: "dark",
     fullscreen: false,
 };
 
@@ -89,11 +89,9 @@ const useHook = () => {
 
     useEffect(() => {
         if (!htmlRef) return;
-        if (config.theme == "system") {
-            htmlRef.removeAttribute("data-theme");
-        } else {
-            htmlRef.setAttribute("data-theme", config.theme);
-        }
+        // App is dark-mode only — ignore any persisted theme preference and
+        // pin the html attribute so daisyUI tokens always resolve to dark.
+        htmlRef.setAttribute("data-theme", "dark");
         if (config.fullscreen) {
             htmlRef.setAttribute("data-fullscreen", "");
         } else {

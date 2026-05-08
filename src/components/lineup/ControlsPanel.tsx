@@ -19,8 +19,6 @@ type ControlsPanelProps = {
     onTeamNameChange: (name: string) => void;
     onTeamColorChange: (color: string) => void;
     onFormationChange: (formation: FormationKey) => void;
-    onClearLineup: () => void;
-    onResetAll: () => void;
     assignedCount: number;
     slotsCount: number;
 };
@@ -30,8 +28,6 @@ export const ControlsPanel = ({
     onTeamNameChange,
     onTeamColorChange,
     onFormationChange,
-    onClearLineup,
-    onResetAll,
     assignedCount,
     slotsCount,
 }: ControlsPanelProps) => {
@@ -130,23 +126,6 @@ export const ControlsPanel = ({
                         max={slotsCount}
                     />
                 </fieldset>
-
-                <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-base-200">
-                    <button
-                        type="button"
-                        onClick={onClearLineup}
-                        className="btn btn-sm btn-outline">
-                        <span className="iconify lucide--eraser size-4" />
-                        Dizilişi temizle
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onResetAll}
-                        className="btn btn-sm btn-ghost text-error">
-                        <span className="iconify lucide--rotate-ccw size-4" />
-                        Varsayılana dön
-                    </button>
-                </div>
             </div>
         </div>
     );

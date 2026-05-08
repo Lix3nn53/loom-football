@@ -19,7 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-        <html lang="tr" suppressHydrationWarning className="group/html">
+        <html
+            lang="tr"
+            data-theme="dark"
+            suppressHydrationWarning
+            className="group/html">
             <head>
                 <meta name="darkreader-lock" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" />

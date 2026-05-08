@@ -29,7 +29,7 @@ type Options = {
 
 export const useCloudSync = (
     match: Match,
-    setMatch: (next: Match) => void,
+    setMatch: (next: Match | ((prev: Match) => Match)) => void,
     ready: boolean,
     options: Options = {},
 ): CloudSyncStatus => {
@@ -49,12 +49,14 @@ export const useCloudSync = (
 
     // Apply a remote snapshot. Updates baseline FIRST so the resulting match
     // change isn't interpreted as a user edit and pushed straight back.
+    // activeSide is preserved from the local state — it's a per-client view
+    // preference and not part of the synced payload.
     const applyRemote = (data: unknown, etag: string | null): boolean => {
-        const next = parseImport(data);
-        if (!next) return false;
-        baselineRef.current = JSON.stringify(matchToExport(next));
+        const teams = parseImport(data);
+        if (!teams) return false;
+        baselineRef.current = JSON.stringify(matchToExport(teams));
         etagRef.current = etag;
-        setMatch(next);
+        setMatch((prev) => ({ ...teams, activeSide: prev.activeSide }));
         return true;
     };
 

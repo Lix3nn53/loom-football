@@ -9,7 +9,7 @@ import {
     pullMatchFromCloud,
     pushMatchToCloud,
 } from "@/lib/cloud-sync";
-import { matchToExport, parseImport } from "@/lib/match-format";
+import { matchToExport, parseImport, type ImportedTeams } from "@/lib/match-format";
 import type { Match } from "@/types/team";
 
 // ----- modal helpers -----
@@ -157,7 +157,7 @@ export const ExportModal = ({ open, onClose, match }: ExportModalProps) => {
 type ImportModalProps = {
     open: boolean;
     onClose: () => void;
-    onImport: (match: Match) => void;
+    onImport: (teams: ImportedTeams) => void;
 };
 
 export const ImportModal = ({ open, onClose, onImport }: ImportModalProps) => {
@@ -185,14 +185,14 @@ export const ImportModal = ({ open, onClose, onImport }: ImportModalProps) => {
             setError("Could not parse JSON.");
             return;
         }
-        const match = parseImport(parsed);
-        if (!match) {
+        const teams = parseImport(parsed);
+        if (!teams) {
             setError(
-                "Invalid match file. Expected red/blue teams with lineup and bench, plus activeSide.",
+                "Invalid match file. Expected red and blue teams with lineup and bench.",
             );
             return;
         }
-        onImport(match);
+        onImport(teams);
         onClose();
         toast.success("Match imported");
     };
@@ -212,12 +212,12 @@ export const ImportModal = ({ open, onClose, onImport }: ImportModalProps) => {
         setError(null);
         try {
             const remote = await pullMatchFromCloud();
-            const match = parseImport(remote);
-            if (!match) {
+            const teams = parseImport(remote.data);
+            if (!teams) {
                 setError("Cloud match is in an unrecognised shape.");
                 return;
             }
-            onImport(match);
+            onImport(teams);
             onClose();
             toast.success("Pulled match from cloud");
         } catch (err) {

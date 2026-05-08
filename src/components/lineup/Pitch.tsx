@@ -16,6 +16,7 @@ type PitchProps = {
     selectedPlayerId: string | null;
     onSlotClick: (slotId: string) => void;
     onSlotPlayerClick: (slotId: string) => void;
+    onSlotPlayerRemove?: (slotId: string) => void;
     onSlotDrop?: (
         playerId: string,
         targetSlot: string,
@@ -31,6 +32,7 @@ export const Pitch = ({
     selectedPlayerId,
     onSlotClick,
     onSlotPlayerClick,
+    onSlotPlayerRemove,
     onSlotDrop,
     teamColor,
 }: PitchProps) => {
@@ -50,13 +52,19 @@ export const Pitch = ({
                     const ready =
                         (!!selectedPlayerId && !filled) ||
                         dragOverSlot === s.id;
+                    const isPicked =
+                        filled && selectedPlayerId === playerId;
+                    const activate = () =>
+                        filled ? onSlotPlayerClick(s.id) : onSlotClick(s.id);
                     return (
-                        <button
+                        <div
                             key={s.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             className="pitch-slot"
                             data-ready={ready ? "" : undefined}
                             data-filled={filled ? "" : undefined}
+                            data-picked={isPicked ? "" : undefined}
                             style={{ left: `${s.x}%`, top: `${s.y}%` }}
                             draggable={filled && !!onSlotDrop}
                             onDragStart={(e) => {
@@ -92,19 +100,27 @@ export const Pitch = ({
                                 onSlotDrop(drag.playerId, s.id, drag.sourceSlot);
                                 setActiveDrag(null);
                             }}
-                            onClick={() =>
-                                filled
-                                    ? onSlotPlayerClick(s.id)
-                                    : onSlotClick(s.id)
-                            }
+                            onClick={activate}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    activate();
+                                }
+                            }}
                             aria-label={
                                 filled
-                                    ? `${player!.name}, ${s.role}, kaldırmak için tıkla`
-                                    : `Boş ${s.role} pozisyonu`
+                                    ? isPicked
+                                        ? `${player!.name}, ${s.role}, seçili — iptal için tıkla`
+                                        : selectedPlayerId
+                                          ? `${player!.name}, ${s.role}, takas için tıkla`
+                                          : `${player!.name}, ${s.role}, almak için tıkla`
+                                    : selectedPlayerId
+                                      ? `Boş ${s.role} pozisyonu, yerleştirmek için tıkla`
+                                      : `Boş ${s.role} pozisyonu`
                             }>
                             {filled ? (
                                 <span
-                                    className={`player-token ${player!.photoUrl ? "has-photo" : ""}`}
+                                    className={`player-token ${player!.photoUrl ? "has-photo" : ""} ${isPicked ? "selected" : ""}`}
                                     style={{
                                         backgroundColor: teamColor,
                                         backgroundImage: player!.photoUrl
@@ -117,13 +133,36 @@ export const Pitch = ({
                                     <span className="player-token-name">
                                         {player!.name}
                                     </span>
+                                    {onSlotPlayerRemove && (
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            className="player-token-remove"
+                                            aria-label={`${player!.name} oyuncusunu kaldır`}
+                                            title="Sahadan kaldır"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSlotPlayerRemove(s.id);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onSlotPlayerRemove(s.id);
+                                                }
+                                            }}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            draggable={false}>
+                                            <span className="iconify lucide--x size-3" />
+                                        </span>
+                                    )}
                                 </span>
                             ) : (
                                 <span className="empty-slot">
                                     <span className="empty-slot-role">{s.role}</span>
                                 </span>
                             )}
-                        </button>
+                        </div>
                     );
                 })}
             </div>

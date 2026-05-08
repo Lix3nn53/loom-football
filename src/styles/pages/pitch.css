@@ -133,6 +133,58 @@
         inset 0 0 0 2px rgba(255, 255, 255, 1);
 }
 
+.pitch-slot[data-picked] .player-token,
+.player-token.selected {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 3px;
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 2px rgba(255, 255, 255, 1),
+        0 0 0 6px color-mix(in srgb, var(--color-primary) 25%, transparent);
+    animation: pitch-pulse 1.6s ease-in-out infinite;
+}
+
+.player-token-remove {
+    @apply absolute flex items-center justify-center rounded-full;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    color: #fff;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 3;
+    transition:
+        opacity 150ms,
+        transform 150ms,
+        background-color 150ms;
+}
+
+.pitch-slot:hover .player-token-remove,
+.pitch-slot:focus-visible .player-token-remove,
+.pitch-slot[data-picked] .player-token-remove {
+    opacity: 1;
+}
+
+.player-token-remove:hover {
+    background: #ef4444;
+    transform: scale(1.1);
+}
+
+.player-token-remove:focus-visible {
+    opacity: 1;
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+@media (hover: none) {
+    .player-token-remove {
+        opacity: 1;
+    }
+}
+
 .pitch-slot[data-ready] .empty-slot {
     background: color-mix(in srgb, var(--color-primary) 25%, transparent);
     border-color: var(--color-primary);

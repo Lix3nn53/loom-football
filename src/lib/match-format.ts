@@ -22,9 +22,13 @@ export type ExportTeam = {
 };
 
 export type ExportFile = {
-    activeSide: "red" | "blue";
     red: ExportTeam;
     blue: ExportTeam;
+};
+
+export type ImportedTeams = {
+    red: Team;
+    blue: Team;
 };
 
 const isExportTeam = (x: unknown): x is ExportTeam => {
@@ -45,11 +49,7 @@ const isExportTeam = (x: unknown): x is ExportTeam => {
 const isExportFile = (x: unknown): x is ExportFile => {
     if (!x || typeof x !== "object") return false;
     const f = x as Record<string, unknown>;
-    return (
-        (f.activeSide === "red" || f.activeSide === "blue") &&
-        isExportTeam(f.red) &&
-        isExportTeam(f.blue)
-    );
+    return isExportTeam(f.red) && isExportTeam(f.blue);
 };
 
 const teamToExport = (team: Team): ExportTeam => {
@@ -106,17 +106,19 @@ const exportToTeam = (et: ExportTeam): Team => {
     };
 };
 
-export const matchToExport = (match: Match): ExportFile => ({
-    activeSide: match.activeSide,
+// activeSide is intentionally NOT serialized — it's a per-client view
+// preference. Including it would (1) cause a cloud push every time the user
+// switches tabs and (2) force every other connected client to switch sides
+// when one user toggles.
+export const matchToExport = (match: Pick<Match, "red" | "blue">): ExportFile => ({
     red: teamToExport(match.red),
     blue: teamToExport(match.blue),
 });
 
-export const parseImport = (raw: unknown): Match | null => {
+export const parseImport = (raw: unknown): ImportedTeams | null => {
     if (!isExportFile(raw)) return null;
     return {
         red: exportToTeam(raw.red),
         blue: exportToTeam(raw.blue),
-        activeSide: raw.activeSide,
     };
 };

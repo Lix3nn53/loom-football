@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Logo } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { ControlsPanel } from "@/components/lineup/ControlsPanel";
 import { Pitch } from "@/components/lineup/Pitch";
 import { RosterPanel } from "@/components/lineup/RosterPanel";
@@ -12,7 +11,7 @@ import { useCloudSync, type CloudSyncStatus } from "@/hooks/use-cloud-sync";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { FORMATIONS } from "@/lib/formations";
 import { parseImport } from "@/lib/match-format";
-import { DEFAULT_MATCH, DEFAULT_BLUE_TEAM, DEFAULT_RED_TEAM } from "@/lib/team-defaults";
+import { DEFAULT_MATCH } from "@/lib/team-defaults";
 import type { FormationKey, Match, Player, Side, Team } from "@/types/team";
 
 const STORAGE_KEY = "__OFFICE_FOOTBALL_MATCH_v1__";
@@ -102,18 +101,32 @@ const HomePage = () => {
 
     const onSlotClick = (slotId: string) => {
         if (!selectedPlayerId) return;
-        const cleaned: Record<string, string | null> = { ...activeTeam.assignments };
-        for (const k of Object.keys(cleaned)) {
-            if (cleaned[k] === selectedPlayerId) cleaned[k] = null;
-        }
-        cleaned[slotId] = selectedPlayerId;
-        updateActiveTeam({ assignments: cleaned });
-        setSelectedPlayerId(null);
+        const sourceSlot = slotByPlayerId[selectedPlayerId] ?? null;
+        onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
     };
 
     const onSlotPlayerClick = (slotId: string) => {
+        const playerInSlot = activeTeam.assignments[slotId];
+        if (!playerInSlot) return;
+
+        if (!selectedPlayerId) {
+            setSelectedPlayerId(playerInSlot);
+            return;
+        }
+        if (selectedPlayerId === playerInSlot) {
+            setSelectedPlayerId(null);
+            return;
+        }
+        const sourceSlot = slotByPlayerId[selectedPlayerId] ?? null;
+        onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
+    };
+
+    const onSlotPlayerRemove = (slotId: string) => {
+        const playerInSlot = activeTeam.assignments[slotId];
+        if (!playerInSlot) return;
         const next = { ...activeTeam.assignments, [slotId]: null };
         updateActiveTeam({ assignments: next });
+        if (selectedPlayerId === playerInSlot) setSelectedPlayerId(null);
     };
 
     // Unified placement handler used by drag-and-drop:
@@ -224,17 +237,6 @@ const HomePage = () => {
         updateActiveTeam({ formation: key, assignments: {} });
     };
 
-    const onClearLineup = () => {
-        updateActiveTeam({ assignments: {} });
-        setSelectedPlayerId(null);
-    };
-
-    const onResetActiveTeam = () => {
-        const fresh = activeSide === "red" ? DEFAULT_RED_TEAM : DEFAULT_BLUE_TEAM;
-        setMatch({ ...match, [activeSide]: fresh });
-        setSelectedPlayerId(null);
-    };
-
     const selectedPlayer = selectedPlayerId
         ? playersBySide[activeSide][selectedPlayerId]
         : undefined;
@@ -243,15 +245,15 @@ const HomePage = () => {
         try {
             const text = await file.text();
             const parsed = JSON.parse(text);
-            const next = parseImport(parsed);
-            if (!next) {
+            const teams = parseImport(parsed);
+            if (!teams) {
                 toast.error("Geçersiz maç dosyası", {
                     description:
-                        "red, blue ve activeSide alanları gerekli (lineup ve bench içermeli).",
+                        "red ve blue alanları gerekli (lineup ve bench içermeli).",
                 });
                 return;
             }
-            setMatch(next);
+            setMatch((prev) => ({ ...teams, activeSide: prev.activeSide }));
             setSelectedPlayerId(null);
             toast.success("Maç içe aktarıldı");
         } catch {
@@ -298,15 +300,7 @@ const HomePage = () => {
             onDrop={onDrop}>
             <header className="z-50 flex items-center justify-between gap-2 border-b border-base-300 bg-base-100 px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
-                    <button
-                        type="button"
-                        onClick={openRoster}
-                        aria-label="Kadroyu aç"
-                        title="Kadro"
-                        className="btn btn-square btn-ghost btn-sm lg:hidden">
-                        <span className="iconify lucide--users size-5" />
-                    </button>
-                    <Logo className="hidden sm:flex" />
+                    <Logo />
                     <div className="hidden sm:flex flex-col leading-tight min-w-0">
                         <span className="text-base font-semibold truncate">
                             Loom Football
@@ -369,17 +363,65 @@ const HomePage = () => {
                         </div>
                     )}
                     <SyncIndicator status={cloudStatus} />
-                    <button
-                        type="button"
-                        onClick={openControls}
-                        aria-label="Takım ayarlarını aç"
-                        title="Takım ayarları"
-                        className="btn btn-square btn-ghost btn-sm lg:hidden">
-                        <span className="iconify lucide--sliders-horizontal size-5" />
-                    </button>
-                    <ThemeToggle className="btn btn-circle btn-ghost btn-sm" />
                 </div>
             </header>
+
+            <nav
+                className="lg:hidden flex items-stretch shrink-0 border-b border-base-300 bg-base-100"
+                aria-label="Paneller">
+                <button
+                    type="button"
+                    onClick={openRoster}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-base-content/80 hover:bg-base-200 active:bg-base-300 transition-colors">
+                    <span className="iconify lucide--users size-5" />
+                    Oyuncular
+                </button>
+                <div className="w-px bg-base-300" aria-hidden="true" />
+                <button
+                    type="button"
+                    onClick={openControls}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-base-content/80 hover:bg-base-200 active:bg-base-300 transition-colors">
+                    <span className="iconify lucide--sliders-horizontal size-5" />
+                    Takım
+                </button>
+            </nav>
+
+            <div
+                className="h-[3px] w-full shrink-0 transition-colors duration-300"
+                style={{ backgroundColor: activeTeam.color }}
+                aria-hidden="true"
+            />
+
+            {selectedPlayer && (
+                <div
+                    className="md:hidden flex items-center gap-2 border-b border-primary/30 bg-primary/10 px-3 py-1.5 text-sm"
+                    role="status"
+                    aria-live="polite">
+                    <span className="iconify lucide--mouse-pointer-click size-4 shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1 truncate">
+                        <span className="font-mono text-base-content/70">
+                            #{selectedPlayer.number}
+                        </span>{" "}
+                        <span className="font-semibold">{selectedPlayer.name}</span>{" "}
+                        <span className="text-base-content/60">yerleştir</span>
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => onMovePlayerToOtherTeam(selectedPlayer.id)}
+                        className="btn btn-ghost btn-xs btn-square shrink-0"
+                        aria-label={`${match[activeSide === "red" ? "blue" : "red"].name} takımına taşı`}
+                        title={`${match[activeSide === "red" ? "blue" : "red"].name} takımına`}>
+                        <span className="iconify lucide--arrow-right-left size-3.5" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedPlayerId(null)}
+                        className="btn btn-ghost btn-xs btn-square shrink-0"
+                        aria-label="Seçimi iptal et">
+                        <span className="iconify lucide--x size-3.5" />
+                    </button>
+                </div>
+            )}
 
             <main className="relative grid grow grid-cols-1 gap-3 overflow-hidden p-3 lg:grid-cols-[260px_1fr_260px] xl:grid-cols-[260px_1fr_1fr_260px]">
                 {(rosterOpen || controlsOpen) && (
@@ -428,6 +470,9 @@ const HomePage = () => {
                         ? onSlotPlayerClick
                         : () => switchSide(side);
                     const onSideSlotDrop = isActive ? onPlacePlayer : undefined;
+                    const onSideSlotPlayerRemove = isActive
+                        ? onSlotPlayerRemove
+                        : undefined;
 
                     return (
                         <div
@@ -461,6 +506,7 @@ const HomePage = () => {
                                     selectedPlayerId={isActive ? selectedPlayerId : null}
                                     onSlotClick={onSideSlotClick}
                                     onSlotPlayerClick={onSideSlotPlayerClick}
+                                    onSlotPlayerRemove={onSideSlotPlayerRemove}
                                     onSlotDrop={onSideSlotDrop}
                                     teamColor={team.color}
                                 />
@@ -478,8 +524,6 @@ const HomePage = () => {
                         onTeamNameChange={(name) => updateActiveTeam({ name })}
                         onTeamColorChange={(color) => updateActiveTeam({ color })}
                         onFormationChange={onFormationChange}
-                        onClearLineup={onClearLineup}
-                        onResetAll={onResetActiveTeam}
                         assignedCount={assignedCount}
                         slotsCount={formation.slots.length}
                     />
