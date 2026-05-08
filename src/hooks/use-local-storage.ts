@@ -1,24 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export const useLocalStorage = <T>(key: string, initialValue: T) => {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-        if (typeof window === "undefined") return initialValue;
-        const item = window.localStorage.getItem(key);
-        return item ? ({ ...initialValue, ...JSON.parse(item) } as T) : initialValue;
-    });
+export const useLocalStorage = <T,>(key: string, initialValue: T) => {
+    // Always start with initialValue so SSR/SSG output matches the first
+    // client render. Real localStorage value is loaded after mount.
+    const [storedValue, setStoredValue] = useState<T>(initialValue);
+    const [loaded, setLoaded] = useState(false);
+    const initialRef = useRef(initialValue);
 
-    const setValue = (value: T | ((val: T) => T)) => {
+    useEffect(() => {
         try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            if (key) {
-                window.localStorage.setItem(key, JSON.stringify(valueToStore));
+            const item = window.localStorage.getItem(key);
+            if (item) {
+                setStoredValue({
+                    ...initialRef.current,
+                    ...JSON.parse(item),
+                } as T);
             }
         } catch (error) {
             console.error(error);
         }
-    };
-    return [storedValue, setValue] as const;
+        setLoaded(true);
+    }, [key]);
+
+    const setValue = useCallback(
+        (value: T | ((val: T) => T)) => {
+            setStoredValue((prev) => {
+                const next = value instanceof Function ? value(prev) : value;
+                try {
+                    window.localStorage.setItem(key, JSON.stringify(next));
+                } catch (error) {
+                    console.error(error);
+                }
+                return next;
+            });
+        },
+        [key],
+    );
+
+    return [storedValue, setValue, loaded] as const;
 };

@@ -41,19 +41,19 @@ export const ControlsPanel = ({
                 <fieldset className="fieldset">
                     <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
                         <span className="iconify lucide--shield size-4" />
-                        Team
+                        Takım
                     </legend>
                     <input
                         type="text"
                         value={team.name}
                         onChange={(e) => onTeamNameChange(e.target.value)}
-                        placeholder="Team name"
+                        placeholder="Takım adı"
                         className="input input-sm w-full"
                     />
                     <div
                         className="flex flex-wrap items-center gap-1.5 mt-1"
                         role="radiogroup"
-                        aria-label="Team color">
+                        aria-label="Takım rengi">
                         {TEAM_COLORS.map((c) => {
                             const active = team.color === c;
                             return (
@@ -63,7 +63,7 @@ export const ControlsPanel = ({
                                     role="radio"
                                     aria-checked={active}
                                     onClick={() => onTeamColorChange(c)}
-                                    aria-label={`Pick color ${c}`}
+                                    aria-label={`${c} rengini seç`}
                                     className={`size-6 rounded-full ring-offset-base-100 transition-transform ${
                                         active
                                             ? "ring-2 ring-base-content ring-offset-2 scale-110"
@@ -79,7 +79,7 @@ export const ControlsPanel = ({
                 <fieldset className="fieldset">
                     <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
                         <span className="iconify lucide--layout-grid size-4" />
-                        Formation
+                        Diziliş
                         <span className="badge badge-sm badge-ghost ml-1">
                             {team.formation}
                         </span>
@@ -107,11 +107,11 @@ export const ControlsPanel = ({
                 <fieldset className="fieldset">
                     <legend className="fieldset-legend inline-flex items-center gap-2 text-base font-medium">
                         <span className="iconify lucide--bar-chart-3 size-4" />
-                        Lineup
+                        Onbir
                     </legend>
                     <div className="stats stats-horizontal w-full bg-base-200 shadow-none">
                         <div className="stat py-2 px-3">
-                            <div className="stat-title text-xs">Assigned</div>
+                            <div className="stat-title text-xs">Sahada</div>
                             <div className="stat-value text-lg">
                                 {assignedCount}
                                 <span className="text-base-content/40 text-base font-normal">
@@ -120,7 +120,7 @@ export const ControlsPanel = ({
                             </div>
                         </div>
                         <div className="stat py-2 px-3">
-                            <div className="stat-title text-xs">Squad</div>
+                            <div className="stat-title text-xs">Kadro</div>
                             <div className="stat-value text-lg">{team.roster.length}</div>
                         </div>
                     </div>
@@ -137,14 +137,14 @@ export const ControlsPanel = ({
                         onClick={onClearLineup}
                         className="btn btn-sm btn-outline">
                         <span className="iconify lucide--eraser size-4" />
-                        Clear lineup
+                        Dizilişi temizle
                     </button>
                     <button
                         type="button"
                         onClick={onResetAll}
                         className="btn btn-sm btn-ghost text-error">
                         <span className="iconify lucide--rotate-ccw size-4" />
-                        Reset to default squad
+                        Varsayılana dön
                     </button>
                 </div>
             </div>

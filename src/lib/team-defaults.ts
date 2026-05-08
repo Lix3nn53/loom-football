@@ -1,9 +1,15 @@
 import type { Match, Player, Team } from "@/types/team";
 
-const samplePlayer = (id: string, name: string, number: number): Player => ({
+const samplePlayer = (
+    id: string,
+    name: string,
+    number: number,
+    photoUrl?: string,
+): Player => ({
     id,
     name,
     number,
+    ...(photoUrl ? { photoUrl } : {}),
 });
 
 const RED_ROSTER: Player[] = [
@@ -41,7 +47,7 @@ const BLUE_ROSTER: Player[] = [
 ];
 
 export const DEFAULT_RED_TEAM: Team = {
-    name: "Reds",
+    name: "Kırmızılar",
     color: "#ef4444",
     formation: "4-3-3",
     roster: RED_ROSTER,
@@ -49,7 +55,7 @@ export const DEFAULT_RED_TEAM: Team = {
 };
 
 export const DEFAULT_BLUE_TEAM: Team = {
-    name: "Blues",
+    name: "Maviler",
     color: "#3b82f6",
     formation: "4-3-3",
     roster: BLUE_ROSTER,

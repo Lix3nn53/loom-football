@@ -20,15 +20,26 @@ export class CloudSyncNotFoundError extends Error {
 
 export const isCloudSyncAvailable = () => Boolean(SYNC_URL);
 
-export const pullMatchFromCloud = async (): Promise<unknown> => {
+export type CloudSnapshot = {
+    data: unknown;
+    etag: string | null;
+};
+
+export const pullMatchFromCloud = async (): Promise<CloudSnapshot> => {
     if (!SYNC_URL) throw new CloudSyncDisabledError();
     const res = await fetch(SYNC_URL, { cache: "no-store" });
     if (res.status === 404) throw new CloudSyncNotFoundError();
     if (!res.ok) throw new Error(`Cloud pull failed: HTTP ${res.status}`);
-    return res.json();
+    const data = await res.json();
+    return { data, etag: res.headers.get("etag") };
 };
 
-export const pushMatchToCloud = async (data: unknown): Promise<void> => {
+// Anonymous public-bucket PUTs cannot use If-Match / If-None-Match — S3
+// requires SigV4 signing for conditional writes. Conflict detection is
+// done client-side by the caller (GET-before-PUT).
+export const pushMatchToCloud = async (
+    data: unknown,
+): Promise<string | null> => {
     if (!SYNC_URL) throw new CloudSyncDisabledError();
     const res = await fetch(SYNC_URL, {
         method: "PUT",
@@ -36,4 +47,5 @@ export const pushMatchToCloud = async (data: unknown): Promise<void> => {
         body: JSON.stringify(data, null, 2),
     });
     if (!res.ok) throw new Error(`Cloud push failed: HTTP ${res.status}`);
+    return res.headers.get("etag");
 };

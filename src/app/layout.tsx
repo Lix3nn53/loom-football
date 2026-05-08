@@ -8,18 +8,18 @@ import "@/styles/app.css";
 export const metadata: Metadata = {
     title: {
         template: "%s - Loom Football",
-        default: "Loom Football - Team Management",
+        default: "Loom Football - Takım Yönetimi",
     },
     description:
-        "Pick a formation, drop your players on the pitch, and manage the office football lineup.",
+        "Bir diziliş seç, oyuncularını sahaya yerleştir ve ofis futbol takımını yönet.",
     icons: {
-        icon: "/favicon.ico",
+        icon: [{ url: "/favicon.png", type: "image/png" }],
     },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-        <html lang="en" suppressHydrationWarning className="group/html">
+        <html lang="tr" suppressHydrationWarning className="group/html">
             <head>
                 <meta name="darkreader-lock" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" />

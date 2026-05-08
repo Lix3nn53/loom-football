@@ -65,9 +65,17 @@ Push/pull the match JSON between users via a single object in a public S3 bucket
 
 ### Wire into the app
 
-Set `NEXT_PUBLIC_CLOUD_SYNC_URL` to the full S3 object URL — locally in `.env.local`, in production via Amplify Hosting → App settings → Environment variables. The Push/Pull buttons in the Export/Import modals start working immediately.
+Set `NEXT_PUBLIC_CLOUD_SYNC_URL` to the full S3 object URL — locally in `.env.local`, in production via Amplify Hosting → App settings → Environment variables. Sync starts as soon as the env var is set.
 
-Tradeoffs: anyone with the URL can read **and** clobber the file. The "obscure path" approach is good enough for an office team. Last-write-wins; if two people push within seconds, the second wins.
+### Multi-user behaviour
+
+- **On load**, the app pulls `match.json` and replaces local state. The response's `ETag` is remembered.
+- **Every 10s** (and on tab refocus) the app GETs the file and replaces local state if the `ETag` changed — so other users' edits show up shortly after they happen.
+- **Every save** does a GET-before-PUT conflict check: if the remote `ETag` no longer matches the one we last saw, the app pulls the new state, drops the in-flight save, and shows a "someone else edited" toast. Otherwise it PUTs unconditionally.
+- The conflict check is client-side because S3 only honours `If-Match` on SigV4-signed PUTs, and our anonymous public-bucket setup is unsigned. The race window between the GET and the PUT is small (~tens of ms) but non-zero — fine for an office team, not safe for high concurrency.
+- The CORS rule must expose the `ETag` header (`ExposeHeaders: ["ETag"]`); the setup above includes it.
+
+Tradeoffs: anyone with the URL can read **and** clobber the file. The "obscure path" approach is good enough for an office team.
 
 ## Project layout
 
