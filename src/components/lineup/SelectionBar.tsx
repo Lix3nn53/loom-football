@@ -27,7 +27,7 @@ export const SelectionBar = ({
         <div
             className={`shrink-0 flex items-center gap-2 border-t px-3 py-3 min-h-[60px] transition-colors ${
                 selectedPlayer
-                    ? "border-primary/40 bg-primary/10"
+                    ? "border-primary/40 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-base-100))]"
                     : "border-base-300 bg-base-100"
             }`}
             role="status"

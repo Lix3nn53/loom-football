@@ -116,6 +116,8 @@ const HomePage = () => {
         }),
         [match.red, match.blue],
     );
+    const playerCountMismatch =
+        teamRatings.red.starters !== teamRatings.blue.starters;
 
     const updateActiveTeam = (changes: Partial<Team>) => {
         setMatch((m) => ({
@@ -488,6 +490,7 @@ const HomePage = () => {
                                     rating={teamRatings[side]}
                                     teamColor={SIDE_COLORS[side]}
                                     teamName={team.name}
+                                    countMismatch={playerCountMismatch}
                                 />
                             </div>
                             <div

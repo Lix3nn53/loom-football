@@ -112,8 +112,9 @@ export type TeamRating = {
     requiredStarters: number;
 };
 
-// Team OVR is the average of the slot-specific OVRs of the eleven starters.
-// Empty slots count as zero so a half-filled team rates honestly.
+// Team OVR is the average slot-specific OVR of whoever is currently on the
+// pitch. Empty slots are ignored — office teams routinely play with fewer
+// than eleven, and we don't want a six-a-side to look like a failing eleven.
 export const computeTeamRating = (team: Team, formation: Formation): TeamRating => {
     const playerById: Record<string, Player> = {};
     for (const p of team.roster) playerById[p.id] = p;
@@ -130,8 +131,7 @@ export const computeTeamRating = (team: Team, formation: Formation): TeamRating 
     }
 
     const requiredStarters = formation.slots.length;
-    const overall =
-        requiredStarters === 0 ? 0 : Math.round(ovrSum / requiredStarters);
+    const overall = starters.length === 0 ? 0 : Math.round(ovrSum / starters.length);
     const stats = averageStats(starters) ?? { ...DEFAULT_STATS };
 
     return {

@@ -20,15 +20,16 @@ type TeamRatingBarProps = {
     rating: TeamRating;
     teamColor: string;
     teamName: string;
+    countMismatch?: boolean;
 };
 
 export const TeamRatingBar = ({
     rating,
     teamColor,
     teamName,
+    countMismatch = false,
 }: TeamRatingBarProps) => {
     const { overall, stats, starters, requiredStarters } = rating;
-    const incomplete = starters < requiredStarters;
     const overallTier = statTier(overall);
 
     return (
@@ -43,10 +44,10 @@ export const TeamRatingBar = ({
                 <div className="team-rating-meta">
                     <span className="team-rating-count">
                         {starters}/{requiredStarters}
-                        {incomplete && (
+                        {countMismatch && (
                             <span
                                 className="iconify lucide--triangle-alert size-3 text-warning ml-1"
-                                title="Kadro eksik"
+                                title="Takımların oyuncu sayısı eşit değil"
                             />
                         )}
                     </span>
