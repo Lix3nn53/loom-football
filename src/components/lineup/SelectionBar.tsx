@@ -3,7 +3,7 @@
 import type { Player } from "@/types/team";
 
 type SelectionBarProps = {
-    selectedPlayer: Player | undefined;
+    selectedPlayer: Player;
     selectedPlayerSlot: string | null;
     otherTeamName: string;
     otherTeamColor: string;
@@ -12,6 +12,9 @@ type SelectionBarProps = {
     onMoveToOtherTeam: (playerId: string) => void;
     onCancel: () => void;
 };
+
+const buttonClass =
+    "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium active:bg-base-300";
 
 export const SelectionBar = ({
     selectedPlayer,
@@ -25,77 +28,56 @@ export const SelectionBar = ({
 }: SelectionBarProps) => {
     return (
         <div
-            className={`shrink-0 flex items-center gap-2 border-t px-3 py-3 min-h-[60px] transition-colors ${
-                selectedPlayer
-                    ? "border-primary/40 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-base-100))]"
-                    : "border-base-300 bg-base-100"
-            }`}
+            className="flex items-stretch shrink-0 border-b border-primary/40 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-base-100))]"
             role="status"
             aria-live="polite">
-            {selectedPlayer ? (
+            <button
+                type="button"
+                onClick={() => onEdit(selectedPlayer)}
+                className={buttonClass}
+                title="Bilgi">
+                <span className="iconify lucide--info size-5" />
+                Bilgi
+            </button>
+
+            {selectedPlayerSlot && (
                 <>
-                    <span className="iconify lucide--mouse-pointer-click size-5 shrink-0 text-primary" />
-                    <span className="min-w-0 flex-1 truncate">
-                        <span className="font-mono text-base-content/70 mr-1">
-                            #{selectedPlayer.number}
-                        </span>
-                        <span className="font-semibold">{selectedPlayer.name}</span>
-                    </span>
-
+                    <div className="w-px bg-base-300" aria-hidden="true" />
                     <button
                         type="button"
-                        onClick={() => onEdit(selectedPlayer)}
-                        className="btn shrink-0"
-                        title="Bilgi">
-                        <span className="iconify lucide--info size-4" />
-                        <span>Bilgi</span>
-                    </button>
-
-                    {selectedPlayerSlot && (
-                        <button
-                            type="button"
-                            onClick={() => onSendToBench(selectedPlayerSlot)}
-                            className="btn btn-warning shrink-0"
-                            title="Yedeğe gönder">
-                            <span className="iconify lucide--armchair size-4" />
-                            <span>Yedek</span>
-                        </button>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={() => onMoveToOtherTeam(selectedPlayer.id)}
-                        className="btn shrink-0 border"
-                        style={{
-                            borderColor: otherTeamColor,
-                            backgroundColor: `${otherTeamColor}26`,
-                            color: "inherit",
-                        }}
-                        aria-label={`${otherTeamName} takımına gönder`}
-                        title={`${otherTeamName} takımına gönder`}>
-                        <span className="iconify lucide--arrow-right size-4" />
-                        <span
-                            className="size-2.5 rounded-full ring-1 ring-base-content/20 shrink-0"
-                            style={{ backgroundColor: otherTeamColor }}
-                            aria-hidden="true"
-                        />
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="btn btn-ghost btn-square shrink-0"
-                        aria-label="Seçimi iptal et"
-                        title="İptal">
-                        <span className="iconify lucide--x size-5" />
+                        onClick={() => onSendToBench(selectedPlayerSlot)}
+                        className={`${buttonClass} text-warning`}
+                        title="Yedeğe gönder">
+                        <span className="iconify lucide--armchair size-5" />
+                        Yedek
                     </button>
                 </>
-            ) : (
-                <span className="flex items-center gap-2 text-base-content/45 flex-1 justify-center text-xs">
-                    <span className="iconify lucide--hand size-4 shrink-0" />
-                    <span>Bir oyuncuya dokun</span>
-                </span>
             )}
+
+            <div className="w-px bg-base-300" aria-hidden="true" />
+            <button
+                type="button"
+                onClick={() => onMoveToOtherTeam(selectedPlayer.id)}
+                className={buttonClass}
+                aria-label={`${otherTeamName} takımına gönder`}
+                title={`${otherTeamName} takımına gönder`}>
+                <span className="iconify lucide--arrow-right size-5" />
+                <span
+                    className="size-3 rounded-full ring-1 ring-base-content/20 shrink-0"
+                    style={{ backgroundColor: otherTeamColor }}
+                    aria-hidden="true"
+                />
+            </button>
+
+            <div className="w-px bg-base-300" aria-hidden="true" />
+            <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 flex items-center justify-center text-base-content/70 active:bg-base-300"
+                aria-label="Seçimi iptal et"
+                title="İptal">
+                <span className="iconify lucide--x size-5" />
+            </button>
         </div>
     );
 };

@@ -459,12 +459,25 @@ const HomePage = () => {
                 cloudStatus={cloudStatus}
             />
 
-            <MobileDrawerNav
-                rosterOpen={rosterOpen}
-                controlsOpen={controlsOpen}
-                onToggleRoster={toggleRoster}
-                onToggleControls={toggleControls}
-            />
+            {selectedPlayer ? (
+                <SelectionBar
+                    selectedPlayer={selectedPlayer}
+                    selectedPlayerSlot={selectedPlayerSlot}
+                    otherTeamName={otherTeam.name}
+                    otherTeamColor={otherColor}
+                    onEdit={setEditingPlayer}
+                    onSendToBench={onSlotPlayerBench}
+                    onMoveToOtherTeam={onMovePlayerToOtherTeam}
+                    onCancel={() => setSelectedPlayerId(null)}
+                />
+            ) : (
+                <MobileDrawerNav
+                    rosterOpen={rosterOpen}
+                    controlsOpen={controlsOpen}
+                    onToggleRoster={toggleRoster}
+                    onToggleControls={toggleControls}
+                />
+            )}
 
             <div
                 className="h-[3px] w-full shrink-0 transition-colors duration-300"
@@ -560,17 +573,6 @@ const HomePage = () => {
                     />
                 </Drawer>
             </main>
-
-            <SelectionBar
-                selectedPlayer={selectedPlayer}
-                selectedPlayerSlot={selectedPlayerSlot}
-                otherTeamName={otherTeam.name}
-                otherTeamColor={otherColor}
-                onEdit={setEditingPlayer}
-                onSendToBench={onSlotPlayerBench}
-                onMoveToOtherTeam={onMovePlayerToOtherTeam}
-                onCancel={() => setSelectedPlayerId(null)}
-            />
 
             <DragDropOverlay visible={fileDrop.active} />
 
