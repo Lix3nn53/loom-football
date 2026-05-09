@@ -81,6 +81,24 @@ export const Pitch = ({
                                 });
                                 e.dataTransfer.effectAllowed = "move";
                                 e.dataTransfer.setData("text/plain", player.id);
+                                // The slot is absolutely positioned with a
+                                // translate transform; the browser's default
+                                // drag snapshot of that element is offset and
+                                // makes the whole pitch appear to follow the
+                                // cursor. Pin the ghost to the inner tile so
+                                // it tracks the cursor cleanly.
+                                const tile =
+                                    e.currentTarget.querySelector<HTMLElement>(
+                                        ".player-tile-body",
+                                    );
+                                if (tile) {
+                                    const rect = tile.getBoundingClientRect();
+                                    e.dataTransfer.setDragImage(
+                                        tile,
+                                        e.clientX - rect.left,
+                                        e.clientY - rect.top,
+                                    );
+                                }
                             }}
                             onDragEnd={() => setActiveDrag(null)}
                             onDragEnter={(e) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
@@ -56,6 +56,40 @@ const HomePage = () => {
     const [exportOpen, setExportOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const cloudStatus = useCloudSync(match, setMatch, matchLoaded);
+
+    useEffect(() => {
+        // Native HTML5 drag-and-drop doesn't fire on touch devices. The
+        // polyfill synthesises drag events from touch input so the existing
+        // handlers work on phones. holdToDrag lets users still scroll the
+        // roster panel — only a deliberate long-press starts a drag.
+        import("mobile-drag-drop").then(({ polyfill }) => {
+            polyfill({ holdToDrag: 200 });
+        });
+    }, []);
+
+    // Drag ghosts use CSS background-image for player photos, which paints
+    // empty until the URL is fully decoded. Without this, the first drag of
+    // a player shows an empty circle; the second drag works because the
+    // browser HTTP-cached the photo. Decode each photoUrl once so ghosts
+    // are correct from the first drag onward.
+    const preloadedPhotos = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        for (const side of SIDES) {
+            for (const p of match[side].roster) {
+                if (!p.photoUrl || preloadedPhotos.current.has(p.photoUrl)) {
+                    continue;
+                }
+                preloadedPhotos.current.add(p.photoUrl);
+                const img = new Image();
+                img.src = p.photoUrl;
+                img.decode().catch(() => {
+                    // If decode fails, drop from the set so it can retry on
+                    // the next render.
+                    preloadedPhotos.current.delete(p.photoUrl!);
+                });
+            }
+        }
+    }, [match]);
 
     const closeDrawers = () => {
         setRosterOpen(false);
