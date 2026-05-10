@@ -50,14 +50,13 @@ export const SyncIndicator = ({ status }: { status: CloudSyncStatus }) => {
         <div
             className={`inline-flex items-center gap-1.5 text-xs ${tone}`}
             role="status"
-            aria-live="polite"
-            title={label}>
+            aria-live="polite">
             {isBusy ? (
                 <span className="loading loading-spinner loading-xs" />
             ) : (
                 <span className={`iconify ${icon} size-3.5`} />
             )}
-            <span className="hidden sm:inline">{label}</span>
+            <span>{label}</span>
         </div>
     );
 };

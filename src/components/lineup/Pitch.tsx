@@ -152,6 +152,10 @@ export const Pitch = ({
                             ) : (
                                 <span className="empty-slot">
                                     <span className="empty-slot-role">{s.role}</span>
+                                    <span
+                                        className="iconify lucide--circle-plus empty-slot-add"
+                                        aria-hidden="true"
+                                    />
                                 </span>
                             )}
                         </div>

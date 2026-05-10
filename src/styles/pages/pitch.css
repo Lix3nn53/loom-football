@@ -62,6 +62,10 @@
     @apply absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer p-0 bg-transparent border-0;
     width: 18%;
     aspect-ratio: 5 / 7;
+    /* Required for mobile-drag-drop polyfill on touch devices: without
+       this, the browser claims the touchstart for scrolling/zooming and
+       the polyfill never sees a long-press. */
+    touch-action: none;
 }
 
 .pitch-slot:focus-visible {
@@ -228,6 +232,24 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+.empty-slot-add {
+    width: 18px;
+    height: 18px;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.55);
+    transition: color 150ms;
+}
+
+.pitch-slot:active .empty-slot-add {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* When a player is selected, the slot is a place target — hide the
+   add hint so the "ready" pulse is the dominant signal. */
+.pitch-slot[data-ready] .empty-slot-add {
+    display: none;
+}
+
 /* Ready = a valid place / swap target while a player is selected. Filled
    and empty slots both light up so the user knows they can swap onto an
    already-occupied slot too. Uses the primary color (distinct from the
@@ -273,5 +295,15 @@
         box-shadow:
             0 4px 14px rgba(0, 0, 0, 0.55),
             0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent);
+    }
+}
+
+/* Respect users who prefer reduced motion: kill the pulses, keep the
+   static highlight so the picked/ready states remain legible. */
+@media (prefers-reduced-motion: reduce) {
+    .pitch-slot[data-picked] .player-tile-body,
+    .player-tile.is-selected .player-tile-body,
+    .pitch-slot[data-ready] .empty-slot {
+        animation: none;
     }
 }

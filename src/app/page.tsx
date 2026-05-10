@@ -5,7 +5,9 @@ import { toast } from "sonner";
 
 import { AppHeader } from "@/components/AppHeader";
 import { Drawer } from "@/components/Drawer";
-import { ExportModal, ImportModal } from "@/components/MatchIO";
+import { ExportModal } from "@/components/ExportModal";
+import { ImportModal } from "@/components/ImportModal";
+import { ShortcutsModal } from "@/components/ShortcutsModal";
 import { ConfirmDeleteModal } from "@/components/lineup/ConfirmDeleteModal";
 import { ControlsPanel } from "@/components/lineup/ControlsPanel";
 import { DragDropOverlay } from "@/components/lineup/DragDropOverlay";
@@ -18,27 +20,17 @@ import { SelectionBar } from "@/components/lineup/SelectionBar";
 import { TeamRatingBar } from "@/components/lineup/TeamRatingBar";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useLineupManagement } from "@/hooks/use-lineup-management";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { FORMATIONS } from "@/lib/formations";
 import { parseImport } from "@/lib/match-format";
-import {
-    DEFAULT_STATS,
-    computeOverall,
-    computeTeamRating,
-} from "@/lib/player-stats";
+import { computeTeamRating } from "@/lib/player-stats";
 import { DEFAULT_MATCH, SIDE_COLORS } from "@/lib/team-defaults";
-import type { FormationKey, Match, Player, Side, Team } from "@/types/team";
+import type { Match, Player, Side } from "@/types/team";
 
 const STORAGE_KEY = "__OFFICE_FOOTBALL_MATCH_v2__";
 const SIDES: Side[] = ["red", "blue"];
 const IS_DEV = process.env.NODE_ENV !== "production";
-
-const pickRandomEmptySlot = (team: Team): string | null => {
-    const slots = FORMATIONS[team.formation].slots;
-    const empty = slots.filter((s) => !team.assignments[s.id]).map((s) => s.id);
-    if (empty.length === 0) return null;
-    return empty[Math.floor(Math.random() * empty.length)];
-};
 
 const HomePage = () => {
     const [match, setMatch, matchLoaded] = useLocalStorage<Match>(
@@ -55,6 +47,7 @@ const HomePage = () => {
     const [pickingForSlot, setPickingForSlot] = useState<string | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const cloudStatus = useCloudSync(match, setMatch, matchLoaded);
 
     useEffect(() => {
@@ -153,18 +146,40 @@ const HomePage = () => {
     const playerCountMismatch =
         teamRatings.red.starters !== teamRatings.blue.starters;
 
-    const updateActiveTeam = (changes: Partial<Team>) => {
-        setMatch((m) => ({
-            ...m,
-            [m.activeSide]: { ...m[m.activeSide], ...changes },
-        }));
-    };
+    const {
+        updateActiveTeam,
+        switchSide,
+        onPlacePlayer,
+        onSlotPlayerBench,
+        onAddPlayer,
+        onRemovePlayer,
+        onUpdatePlayer,
+        onMovePlayerToOtherTeam,
+        onFormationChange,
+        onAutoFillLineup,
+        autoFillSide,
+    } = useLineupManagement({
+        match,
+        setMatch,
+        selectedPlayerId,
+        setSelectedPlayerId,
+    });
 
-    const switchSide = (side: Side) => {
-        if (side === activeSide) return;
-        setMatch({ ...match, activeSide: side });
-        setSelectedPlayerId(null);
-    };
+    // "Hizala" CTA fills the shorter side's empty slots from its bench.
+    // Only actionable when there's a mismatch AND the shorter side has
+    // bench players to draw from.
+    const evenOutSide: Side | null = playerCountMismatch
+        ? teamRatings.red.starters < teamRatings.blue.starters
+            ? "red"
+            : "blue"
+        : null;
+    const evenOutSideHasBench = evenOutSide
+        ? match[evenOutSide].roster.length > teamRatings[evenOutSide].starters
+        : false;
+    const onEvenOut =
+        evenOutSide && evenOutSideHasBench
+            ? () => autoFillSide(evenOutSide)
+            : undefined;
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -191,6 +206,7 @@ const HomePage = () => {
             }
             if (e.key === "1") switchSide("red");
             else if (e.key === "2") switchSide("blue");
+            else if (e.key === "?") setShortcutsOpen(true);
         };
         document.addEventListener("keydown", onKey);
         return () => document.removeEventListener("keydown", onKey);
@@ -240,176 +256,6 @@ const HomePage = () => {
         onPlacePlayer(selectedPlayerId, slotId, sourceSlot);
     };
 
-    const onSlotPlayerBench = (slotId: string) => {
-        const playerInSlot = activeTeam.assignments[slotId];
-        if (!playerInSlot) return;
-        const next = { ...activeTeam.assignments, [slotId]: null };
-        updateActiveTeam({ assignments: next });
-        if (selectedPlayerId === playerInSlot) setSelectedPlayerId(null);
-    };
-
-    // Unified placement handler used by drag-and-drop:
-    // - bench → slot:           targetSlot=X, sourceSlot=null  (displaced player goes to bench)
-    // - slot A → slot B (empty): targetSlot=B, sourceSlot=A    (A cleared, B filled)
-    // - slot A → slot B (full):  targetSlot=B, sourceSlot=A    (swap A and B)
-    // - slot A → bench:          targetSlot=null, sourceSlot=A (clear A)
-    const onPlacePlayer = (
-        playerId: string,
-        targetSlot: string | null,
-        sourceSlot: string | null,
-    ) => {
-        setMatch((m) => {
-            const side = m.activeSide;
-            const team = m[side];
-            const next: Record<string, string | null> = { ...team.assignments };
-            const displaced =
-                targetSlot && next[targetSlot] != null ? next[targetSlot] : null;
-
-            for (const k of Object.keys(next)) {
-                if (next[k] === playerId) next[k] = null;
-            }
-            if (sourceSlot && displaced && displaced !== playerId) {
-                next[sourceSlot] = displaced;
-            }
-            if (targetSlot) {
-                next[targetSlot] = playerId;
-            }
-
-            return { ...m, [side]: { ...team, assignments: next } };
-        });
-        setSelectedPlayerId(null);
-    };
-
-    const onAddPlayer = ({
-        name,
-        number,
-        photoUrl,
-    }: {
-        name: string;
-        number: number;
-        photoUrl?: string;
-    }) => {
-        const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-        const player: Player = {
-            id,
-            name,
-            number,
-            ...(photoUrl ? { photoUrl } : {}),
-            stats: { ...DEFAULT_STATS },
-        };
-        setMatch((m) => {
-            const side = m.activeSide;
-            const team = m[side];
-            const slot = pickRandomEmptySlot(team);
-            const nextAssignments = slot
-                ? { ...team.assignments, [slot]: id }
-                : team.assignments;
-            return {
-                ...m,
-                [side]: {
-                    ...team,
-                    roster: [...team.roster, player],
-                    assignments: nextAssignments,
-                },
-            };
-        });
-    };
-
-    const onRemovePlayer = (id: string) => {
-        const cleaned: Record<string, string | null> = { ...activeTeam.assignments };
-        for (const k of Object.keys(cleaned)) {
-            if (cleaned[k] === id) cleaned[k] = null;
-        }
-        updateActiveTeam({
-            roster: activeTeam.roster.filter((p) => p.id !== id),
-            assignments: cleaned,
-        });
-        if (selectedPlayerId === id) setSelectedPlayerId(null);
-    };
-
-    const onUpdatePlayer = (id: string, changes: Partial<Player>) => {
-        updateActiveTeam({
-            roster: activeTeam.roster.map((p) =>
-                p.id === id ? { ...p, ...changes } : p,
-            ),
-        });
-    };
-
-    const onMovePlayerToOtherTeam = (id: string) => {
-        setMatch((m) => {
-            const fromSide = m.activeSide;
-            const toSide: Side = fromSide === "red" ? "blue" : "red";
-            const fromTeam = m[fromSide];
-            const toTeam = m[toSide];
-            const player = fromTeam.roster.find((p) => p.id === id);
-            if (!player) return m;
-
-            const fromAssignments: Record<string, string | null> = {
-                ...fromTeam.assignments,
-            };
-            for (const k of Object.keys(fromAssignments)) {
-                if (fromAssignments[k] === id) fromAssignments[k] = null;
-            }
-
-            const slot = pickRandomEmptySlot(toTeam);
-            const toAssignments = slot
-                ? { ...toTeam.assignments, [slot]: id }
-                : toTeam.assignments;
-
-            return {
-                ...m,
-                [fromSide]: {
-                    ...fromTeam,
-                    roster: fromTeam.roster.filter((p) => p.id !== id),
-                    assignments: fromAssignments,
-                },
-                [toSide]: {
-                    ...toTeam,
-                    roster: [...toTeam.roster, player],
-                    assignments: toAssignments,
-                },
-            };
-        });
-        if (selectedPlayerId === id) setSelectedPlayerId(null);
-    };
-
-    const onFormationChange = (key: FormationKey) => {
-        if (key === activeTeam.formation) return;
-        updateActiveTeam({ formation: key, assignments: {} });
-    };
-
-    // Greedy fill: for each empty slot, pick the bench player with the
-    // highest position-specific OVR. Only touches empty slots — never
-    // displaces a player that's already on the pitch.
-    const onAutoFillLineup = () => {
-        const slots = FORMATIONS[activeTeam.formation].slots;
-        const next: Record<string, string | null> = { ...activeTeam.assignments };
-        const assignedIds = new Set(
-            Object.values(next).filter((v): v is string => !!v),
-        );
-        const benchPool = activeTeam.roster.filter(
-            (p) => !assignedIds.has(p.id),
-        );
-        if (benchPool.length === 0) return;
-
-        for (const slot of slots) {
-            if (next[slot.id] || benchPool.length === 0) continue;
-            let bestIdx = 0;
-            let bestOvr = computeOverall(benchPool[0].stats, slot.role);
-            for (let i = 1; i < benchPool.length; i++) {
-                const ovr = computeOverall(benchPool[i].stats, slot.role);
-                if (ovr > bestOvr) {
-                    bestOvr = ovr;
-                    bestIdx = i;
-                }
-            }
-            const [picked] = benchPool.splice(bestIdx, 1);
-            next[slot.id] = picked.id;
-        }
-
-        updateActiveTeam({ assignments: next });
-    };
-
     const selectedPlayer = selectedPlayerId
         ? playersBySide[activeSide][selectedPlayerId]
         : undefined;
@@ -456,6 +302,7 @@ const HomePage = () => {
                 teamNames={{ red: match.red.name, blue: match.blue.name }}
                 activeSide={activeSide}
                 onSwitchSide={switchSide}
+                onShowShortcuts={() => setShortcutsOpen(true)}
                 cloudStatus={cloudStatus}
             />
 
@@ -551,6 +398,16 @@ const HomePage = () => {
                                     teamColor={SIDE_COLORS[side]}
                                     teamName={team.name}
                                     countMismatch={playerCountMismatch}
+                                    onEvenOut={onEvenOut}
+                                    opposing={
+                                        isActive
+                                            ? {
+                                                  rating: teamRatings[otherSide],
+                                                  name: otherTeam.name,
+                                                  color: otherColor,
+                                              }
+                                            : undefined
+                                    }
                                 />
                             </div>
                             <div
@@ -636,6 +493,10 @@ const HomePage = () => {
                     />
                 </>
             )}
+            <ShortcutsModal
+                open={shortcutsOpen}
+                onClose={() => setShortcutsOpen(false)}
+            />
         </div>
     );
 };

@@ -12,6 +12,7 @@ type AppHeaderProps = {
     teamNames: Record<Side, string>;
     activeSide: Side;
     onSwitchSide: (side: Side) => void;
+    onShowShortcuts: () => void;
     cloudStatus: CloudSyncStatus;
 };
 
@@ -19,6 +20,7 @@ export const AppHeader = ({
     teamNames,
     activeSide,
     onSwitchSide,
+    onShowShortcuts,
     cloudStatus,
 }: AppHeaderProps) => {
     return (
@@ -35,7 +37,7 @@ export const AppHeader = ({
                 </div>
             </div>
 
-            <div role="tablist" className="tabs tabs-box tabs-sm bg-base-200">
+            <div role="tablist" className="tabs tabs-box tabs-sm bg-base-200 min-w-0 max-w-[60%]">
                 {SIDES.map((side) => {
                     const active = side === activeSide;
                     return (
@@ -44,18 +46,28 @@ export const AppHeader = ({
                             role="tab"
                             aria-selected={active}
                             onClick={() => onSwitchSide(side)}
-                            className={`tab gap-2 ${active ? "tab-active" : ""}`}>
+                            className={`tab gap-2 min-w-0 ${active ? "tab-active" : ""}`}>
                             <span
-                                className="size-3 rounded-full ring-1 ring-base-content/20"
+                                className="size-3 rounded-full ring-1 ring-base-content/20 shrink-0"
                                 style={{ backgroundColor: SIDE_COLORS[side] }}
                             />
-                            {teamNames[side]}
+                            <span className="truncate">{teamNames[side]}</span>
                         </button>
                     );
                 })}
             </div>
 
-            <SyncIndicator status={cloudStatus} />
+            <div className="flex items-center gap-1 shrink-0">
+                <button
+                    type="button"
+                    onClick={onShowShortcuts}
+                    className="btn btn-ghost btn-sm btn-square hidden lg:inline-flex"
+                    aria-label="Klavye kısayolları"
+                    title="Klavye kısayolları (?)">
+                    <span className="iconify lucide--keyboard size-4" />
+                </button>
+                <SyncIndicator status={cloudStatus} />
+            </div>
         </header>
     );
 };

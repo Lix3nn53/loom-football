@@ -10,12 +10,12 @@ import type {
 export const STAT_KEYS: StatKey[] = ["pac", "sho", "pas", "dri", "def", "phy"];
 
 export const STAT_LABELS: Record<StatKey, string> = {
-    pac: "PAC",
-    sho: "SHO",
+    pac: "HIZ",
+    sho: "ŞUT",
     pas: "PAS",
     dri: "DRI",
     def: "DEF",
-    phy: "PHY",
+    phy: "FİZ",
 };
 
 export const STAT_FULL_LABELS: Record<StatKey, string> = {

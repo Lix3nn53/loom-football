@@ -27,14 +27,22 @@ export const AddPlayerForm = ({ onAdd, existingNumbers }: AddPlayerFormProps) =>
         if (open) nameInputRef.current?.focus();
     }, [open]);
 
+    const parsedNumber = parseInt(number, 10);
+    const typedNumber =
+        number.trim() === "" || Number.isNaN(parsedNumber)
+            ? null
+            : Math.max(1, Math.min(99, parsedNumber));
+    const numberTaken = typedNumber !== null && existingNumbers.has(typedNumber);
+    const suggestedNumber = numberTaken ? pickUnusedNumber(existingNumbers) : null;
+
     const submit = () => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        const parsed = parseInt(number, 10);
+        if (numberTaken) return;
         const resolvedNumber =
-            number.trim() === "" || Number.isNaN(parsed)
-                ? pickUnusedNumber(existingNumbers)
-                : Math.max(1, Math.min(99, parsed));
+            typedNumber !== null
+                ? typedNumber
+                : pickUnusedNumber(existingNumbers);
         const url = photoUrl.trim();
         onAdd({
             name: trimmed,
@@ -90,31 +98,59 @@ export const AddPlayerForm = ({ onAdd, existingNumbers }: AddPlayerFormProps) =>
                     max={99}
                     value={number}
                     onChange={(e) => setNumber(e.target.value)}
-                    placeholder="No."
-                    title="Boş bırakırsan rastgele numara verilir"
+                    placeholder="1-99"
                     className="input input-sm join-item w-16 no-spinner"
-                    aria-label="Forma numarası (boş = rastgele)"
+                    aria-label="Forma numarası (boş bırakırsan rastgele atanır)"
                 />
                 <button
                     type="button"
                     onClick={submit}
-                    disabled={!name.trim()}
+                    disabled={!name.trim() || numberTaken}
                     className="btn btn-sm btn-primary join-item"
                     aria-label="Oyuncu ekle">
                     <span className="iconify lucide--plus size-4" />
                 </button>
             </div>
-            <input
-                type="url"
-                placeholder="Fotoğraf URL (opsiyonel)"
-                value={photoUrl}
-                onChange={(e) => setPhotoUrl(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") submit();
-                    if (e.key === "Escape") setOpen(false);
-                }}
-                className="input input-sm w-full mt-2"
-            />
+            {numberTaken && suggestedNumber !== null ? (
+                <div className="text-xs text-warning mt-1 flex items-center gap-2">
+                    <span className="iconify lucide--triangle-alert size-3.5 shrink-0" />
+                    <span className="grow">#{typedNumber} kullanılıyor.</span>
+                    <button
+                        type="button"
+                        onClick={() => setNumber(String(suggestedNumber))}
+                        className="btn btn-xs btn-ghost">
+                        #{suggestedNumber} kullan
+                    </button>
+                </div>
+            ) : (
+                <p className="text-[10px] text-base-content/50 mt-1">
+                    No alanını boş bırakırsan rastgele bir numara atanır.
+                </p>
+            )}
+            <div className="join w-full mt-2">
+                <input
+                    type="url"
+                    placeholder="Fotoğraf URL (opsiyonel)"
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") submit();
+                        if (e.key === "Escape") setOpen(false);
+                    }}
+                    className="input input-sm join-item flex-1"
+                />
+                {photoUrl.trim() && (
+                    <div
+                        className="join-item flex items-center justify-center bg-base-100 border border-base-300 px-2"
+                        aria-hidden="true">
+                        <div
+                            className="size-7 rounded-full bg-base-200 bg-cover bg-center"
+                            style={{ backgroundImage: `url(${photoUrl.trim()})` }}
+                            title="Fotoğraf önizleme"
+                        />
+                    </div>
+                )}
+            </div>
         </fieldset>
     );
 };
