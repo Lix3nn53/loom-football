@@ -3,7 +3,7 @@
 import type { Player } from "@/types/team";
 
 type SelectionBarProps = {
-    selectedPlayer: Player;
+    selectedPlayer: Player | null;
     selectedPlayerSlot: string | null;
     otherTeamName: string;
     otherTeamColor: string;
@@ -11,6 +11,7 @@ type SelectionBarProps = {
     onSendToBench: (slotId: string) => void;
     onMoveToOtherTeam: (playerId: string) => void;
     onCancel: () => void;
+    className?: string;
 };
 
 const buttonClass =
@@ -25,10 +26,25 @@ export const SelectionBar = ({
     onSendToBench,
     onMoveToOtherTeam,
     onCancel,
+    className = "",
 }: SelectionBarProps) => {
+    if (!selectedPlayer) {
+        return (
+            <div
+                className={`flex items-stretch shrink-0 border-b border-base-300 bg-base-100 ${className}`}
+                role="status"
+                aria-live="polite">
+                <span className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-base-content/45">
+                    <span className="iconify lucide--hand size-4" />
+                    <span>Bir oyuncuya dokun</span>
+                </span>
+            </div>
+        );
+    }
+
     return (
         <div
-            className="flex items-stretch shrink-0 border-b border-primary/40 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-base-100))]"
+            className={`flex items-stretch shrink-0 border-b border-primary/40 bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-base-100))] ${className}`}
             role="status"
             aria-live="polite">
             <button

@@ -471,12 +471,25 @@ const HomePage = () => {
                     onCancel={() => setSelectedPlayerId(null)}
                 />
             ) : (
-                <MobileDrawerNav
-                    rosterOpen={rosterOpen}
-                    controlsOpen={controlsOpen}
-                    onToggleRoster={toggleRoster}
-                    onToggleControls={toggleControls}
-                />
+                <>
+                    <MobileDrawerNav
+                        rosterOpen={rosterOpen}
+                        controlsOpen={controlsOpen}
+                        onToggleRoster={toggleRoster}
+                        onToggleControls={toggleControls}
+                    />
+                    <SelectionBar
+                        className="hidden lg:flex"
+                        selectedPlayer={null}
+                        selectedPlayerSlot={null}
+                        otherTeamName={otherTeam.name}
+                        otherTeamColor={otherColor}
+                        onEdit={setEditingPlayer}
+                        onSendToBench={onSlotPlayerBench}
+                        onMoveToOtherTeam={onMovePlayerToOtherTeam}
+                        onCancel={() => setSelectedPlayerId(null)}
+                    />
+                </>
             )}
 
             <div
