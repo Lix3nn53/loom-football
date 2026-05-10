@@ -62,10 +62,6 @@
     @apply absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer p-0 bg-transparent border-0;
     width: 18%;
     aspect-ratio: 5 / 7;
-    /* Required for mobile-drag-drop polyfill on touch devices: without
-       this, the browser claims the touchstart for scrolling/zooming and
-       the polyfill never sees a long-press. */
-    touch-action: none;
 }
 
 .pitch-slot:focus-visible {

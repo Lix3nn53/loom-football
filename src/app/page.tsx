@@ -50,16 +50,6 @@ const HomePage = () => {
     const [shortcutsOpen, setShortcutsOpen] = useState(false);
     const cloudStatus = useCloudSync(match, setMatch, matchLoaded);
 
-    useEffect(() => {
-        // Native HTML5 drag-and-drop doesn't fire on touch devices. The
-        // polyfill synthesises drag events from touch input so the existing
-        // handlers work on phones. holdToDrag lets users still scroll the
-        // roster panel — only a deliberate long-press starts a drag.
-        import("mobile-drag-drop").then(({ polyfill }) => {
-            polyfill({ holdToDrag: 200 });
-        });
-    }, []);
-
     // Drag ghosts use CSS background-image for player photos, which paints
     // empty until the URL is fully decoded. Without this, the first drag of
     // a player shows an empty circle; the second drag works because the

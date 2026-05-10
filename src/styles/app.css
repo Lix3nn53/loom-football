@@ -3,10 +3,6 @@
 @import "./tailwind.css";
 @import "./daisyui.css";
 
-/* mobile-drag-drop polyfill: required for the synthesized drag image
-   to render correctly on touch devices. */
-@import "mobile-drag-drop/default.css";
-
 /* Custom Declarations */
 @import "./core/animation.css";
 @import "./core/components.css";
